@@ -25,7 +25,10 @@ class client:
         self.time_horizon = None
 
     def is_user_known(self, user_id: int) -> bool:
-        return True if user_id in self.user_info.keys() else False
+        return True if str(user_id) in self.user_info.keys() else False
+
+    def get_user_name(self, user_id: int) -> str:
+        return self.user_info[str(user_id)]['login']
 
     def __config(self, user_id: int) -> ApiClient:
         '''
@@ -65,8 +68,11 @@ class client:
         with open(self.cache_dir+'/users.json', 'w') as wr:
             json.dump(self.user_info, wr)
 
-    def __get_media(self, media_id: int) -> dict:
+    def get_media(self, media_id: int) -> dict:
         return next((x for x in self.library if x['id'] == media_id), None)
+
+    def get_segment(self, segm_id: int) -> dict:
+        return next((x for x in self.schedule if x['id'] == segm_id), None)
 
     def login(self, user_id: int, login: str, password: str) -> bool:
         api_instance = AuthApi(ApiClient())
@@ -138,9 +144,11 @@ class client:
 
         try:
             api_response = api_instance.admin_schedule_get(start=start)
-            self.schedule = api_response
-            print(self.schedule)
-            # self.time_horizon = api_response[-1].time
+            self.schedule = api_response['segments']
+            if len(self.schedule) > 0:
+                start = datetime.strptime(self.schedule[-1]['start'], r'%Y-%m-%dT%H:%M:%S.%fZ')
+                duration = timedelta(microseconds=self.schedule[-1]['stopCut']*1e-3)
+                self.time_horizon = start + duration + timedelta(hours=3) # time zone shift
         except ApiException as e:
             print("Exception when calling ScheduleApi->admin_schedule_get: %s\n" % e)
             raise e
@@ -154,12 +162,12 @@ class client:
         if self.time_horizon is None:
             self.time_horizon = datetime.now()
 
-        media = self.__get_media(media_id)
+        media = self.get_media(media_id)
         if media is None:
             raise ValueError("Unknown media_id.")
 
         duration = timedelta(microseconds=media['duration']*1e-3)
-        start = self.time_horizon+duration
+        start = self.time_horizon
 
         body = SegmentRegister(
             media_id=media_id,
@@ -168,7 +176,7 @@ class client:
 
         try:
             res = api_instance.admin_schedule_post(body=body)
-            print(res)
+            return res
         except ApiException as e:
             print("Exception when calling ScheduleApi->admin_schedule_post: %s\n" % e)
             raise e

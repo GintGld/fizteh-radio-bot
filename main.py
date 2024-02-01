@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from client import client
 
 TMP_DIR = 'tmp'
+LOG_DIR = '.log'
 SCHEDULE_STEP = 10
 
 cl = client()
@@ -70,14 +71,14 @@ def library(msg: telebot.types.Message) -> None:
     try:
         cl.update_library(user_id)
     except Exception as e:
-        print('failed to update library. %s' % e)
+        log(user_id, 'failed to update library. %s' % e)
         fail_message(user_id)
         return
     
     try:
         cl.update_schedule(user_id)
     except Exception as e:
-        print('failed to update schedule. %s' % e)
+        log(user_id, 'failed to update schedule. %s' % e)
         fail_message(user_id)
         return
     
@@ -98,13 +99,13 @@ def schedule(msg: telebot.types.Message) -> None:
     try:
         cl.update_library(user_id)
     except Exception as e:
-        print('failed to update library. %s' % e)
+        log(user_id, 'failed to update library. %s' % e)
         fail_message(user_id)
 
     try:
         cl.update_schedule(user_id)
     except Exception as e:
-        print('failed to update schedule. %s' % e)
+        log(user_id, 'failed to update schedule. %s' % e)
         fail_message(user_id)
 
     schedule_cut[user_id] = get_actual_schedule()
@@ -344,7 +345,7 @@ def authorization(msg: telebot.types.Message) -> None:
                 login_candidates[user_id]['pass']    
             )
         except Exception as e:
-            print('Error occured during client->login. %s' % e)
+            log(user_id, 'Error occured during client->login. %s' % e)
             fail_message(user_id)
 
         if res:
@@ -413,21 +414,21 @@ def new_media_author(msg: telebot.types.Message) -> None:
             new_media_candidates[user_id]['source']
         )
     except Exception as e:
-        print('failed to upload media. %s' %e)
+        log(user_id, 'failed to upload media. %s' %e)
         fail_message(user_id)
         return
 
     try:
         cl.update_library(user_id)
     except Exception as e:
-        print('failed to update library. %s' % e)
+        log(user_id, 'failed to update library. %s' % e)
         fail_message(user_id)
         return
 
     try:
         os.remove(new_media_candidates[user_id]['source'])
     except Exception as e:
-        print('failef to delete tmp file. %s' % e)
+        log(user_id, 'failef to delete tmp file. %s' % e)
     finally:
         del new_media_candidates[user_id]
 
@@ -460,7 +461,7 @@ def new_segment_id(msg: telebot.types.Message) -> None:
         res = cl.new_segment(user_id, search_res[user_id][array_id - 1]['id'])
         segm_id = res.id
     except Exception as e:
-        print('failed to create new segment. %s' %e)
+        log(user_id, 'failed to create new segment. %s' %e)
         fail_message(user_id)
         return
     
@@ -469,7 +470,7 @@ def new_segment_id(msg: telebot.types.Message) -> None:
     try:
         cl.update_schedule(user_id)
     except Exception as e:
-        print('failed to update schedule. %s' %e)
+        log(user_id, 'failed to update schedule. %s' %e)
         fail_message(user_id)
         return
 
@@ -555,14 +556,14 @@ def autodj_hours(msg: telebot.types.Message) -> None:
         try:
             cl.new_segment(user_id, m)
         except Exception as e:
-            print(f'failed to create new segment id={m} %s' %e)
+            log(user_id, f'failed to create new segment id={m} %s' %e)
             fail_message(user_id)
             return
 
     try:
         cl.update_schedule(user_id)
     except Exception as e:
-        print(f'failed to update schedule %s' %e)
+        log(user_id, f'failed to update schedule %s' %e)
         fail_message(user_id)
         return
 
@@ -616,6 +617,12 @@ def fail_message(user_id: int) -> None:
         chat_id=user_id,
         text='Произошла ошибка, тыкайте админа.'
     )
+
+def log(user_id: int, *args) -> None:
+    now = datetime.now()
+    args = now.strftime(f'[%Y-%m-%d %H:%M:%S, {user_id}] ') + ... + args
+    with open(LOG_DIR+'/bot.log', 'w') as wr:
+        print(*args, file=wr)
 
 if __name__ == '__main__':
     app.polling()

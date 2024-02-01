@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from client import client
 
 TMP_DIR = 'tmp'
+SCHEDULE_STEP = 10
 
 cl = client()
 
@@ -19,6 +20,7 @@ login_candidates = {}
 new_media_candidates = {}
 status = {}
 search_res = {}
+schedule_cut = {}
 
 LIBRARY = '📚🎶'
 NEW_MEDIA = '🆕🎵'
@@ -105,10 +107,10 @@ def schedule(msg: telebot.types.Message) -> None:
         print('failed to update schedule. %s' % e)
         fail_message(user_id)
 
+    schedule_cut[user_id] = get_actual_schedule()
+
     markup = telebot.types.InlineKeyboardMarkup(row_width=1).add(
-        telebot.types.InlineKeyboardButton("Сегодня", callback_data="0_schedule"),
-        telebot.types.InlineKeyboardButton("Завтра", callback_data="1_schedule"),
-        telebot.types.InlineKeyboardButton("Послезавтра", callback_data="2_schedule"),
+        telebot.types.InlineKeyboardButton("Расписание", callback_data="0_schedule"),
         telebot.types.InlineKeyboardButton("Автодиджей", callback_data="autodj")
     )
 
@@ -138,32 +140,43 @@ def help_message(msg: telebot.types.Message) -> None:
         reply_markup=main_menu()
     )
 
-@app.callback_query_handler(lambda call: call.data[1:] == '_schedule')
-def schedule_day(call: telebot.types.CallbackQuery) -> None:
+@app.callback_query_handler(lambda call: call.data.endswith('_schedule'))
+def schedule_list(call: telebot.types.CallbackQuery) -> None:
     user_id = call.from_user.id
-    day = timedelta(days=int(call.data[0])) + datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
-    unix_start = day.timestamp()
-    unix_stop = unix_start + 3600*24
 
     if invalid_user(user_id):
         return
 
-    filtered = filter(
-        lambda x: segment_in_interval(unix_start, unix_stop, x),
-        cl.schedule
-    )
-    result = [segment_pretty(x) for x in filtered]
+    data = call.data.removesuffix('_schedule')
 
-    text = "\n".join(result) if len(result) != 0 else "Расписание на этот день пусто."
+    if data == 'main':
+        schedule_cut[user_id] = get_actual_schedule()
+        markup = telebot.types.InlineKeyboardMarkup(row_width=1).add(
+            telebot.types.InlineKeyboardButton("Расписание", callback_data="0_schedule"),
+            telebot.types.InlineKeyboardButton("Автодиджей", callback_data="autodj")
+        )
+        app.send_message(
+            chat_id=user_id,
+            text='Выбери день или авто диджея',
+            reply_markup=markup
+        )
+        return
 
-    app.send_message(
+    i = int(data)
+
+    result = [segment_pretty(x) for x in schedule_cut[user_id][i*SCHEDULE_STEP:(i+1)*SCHEDULE_STEP]]
+
+    text = "\n".join(result) if len(result) != 0 else "Расписание пусто."
+
+    app.edit_message_text(
         chat_id=user_id,
+        message_id=call.message.message_id,
         text=text,
-        reply_markup=to_main_menu()
+        reply_markup=arrows_menu(i, len(result) == 0)
     )
 
 @app.callback_query_handler(lambda call: call.data == 'autodj')
-def schedule_day(call: telebot.types.CallbackQuery) -> None:
+def autodj_handler(call: telebot.types.CallbackQuery) -> None:
     user_id = call.from_user.id
 
     if len(cl.library) == 0:
@@ -193,7 +206,12 @@ def new_segment_ask_id(call: telebot.types.CallbackQuery) -> None:
 
 @app.message_handler(content_types=['text'])
 def text_message_handler(msg: telebot.types.Message) -> None:    
-    match status[msg.from_user.id]:
+    user_id = msg.from_user.id
+    
+    if invalid_user(user_id):
+        return
+    
+    match status[user_id]:
         case 'candidate':
             authorization(msg)
         case 'library-search':
@@ -261,6 +279,28 @@ def to_main_menu() -> telebot.types.ReplyKeyboardMarkup:
     return telebot.types.ReplyKeyboardMarkup(resize_keyboard=True).add(
         telebot.types.KeyboardButton(MAIN_MENU),
     )
+
+def arrows_menu(i: int, empty: bool) -> telebot.types.InlineKeyboardMarkup:
+    if i > 0:
+        if empty:
+            return telebot.types.InlineKeyboardMarkup(row_width=1).add(
+                telebot.types.InlineKeyboardButton(text='🔙', callback_data=f'{i-1}_schedule'),
+                telebot.types.InlineKeyboardButton(text='Назад', callback_data=f'main_schedule')
+            )
+        return telebot.types.InlineKeyboardMarkup(row_width=2).add(
+            telebot.types.InlineKeyboardButton(text='🔙', callback_data=f'{i-1}_schedule'),
+            telebot.types.InlineKeyboardButton(text='🔜', callback_data=f'{i+1}_schedule'),
+            telebot.types.InlineKeyboardButton(text='Назад', callback_data=f'main_schedule')
+        )
+    else:
+        if empty:
+            return telebot.types.InlineKeyboardMarkup(row_width=1).add(
+                telebot.types.InlineKeyboardButton(text='Назад', callback_data=f'main_schedule')
+            )
+        return telebot.types.InlineKeyboardMarkup(row_width=1).add(
+            telebot.types.InlineKeyboardButton(text='🔜', callback_data=f'{i+1}_schedule'),
+            telebot.types.InlineKeyboardButton(text='Назад', callback_data=f'main_schedule')
+        )
 
 def authorization(msg: telebot.types.Message) -> None:
     user_id = msg.from_user.id
@@ -537,21 +577,22 @@ def autodj_hours(msg: telebot.types.Message) -> None:
 def search_alg(pattern: str, text: str) -> bool:
     return pattern in text
 
-def segment_in_interval(start: int, stop: int, segm: dict) -> bool:
-    segm_start = datetime.strptime(segm['start'], r'%Y-%m-%dT%H:%M:%S.%fZ')
-    segm_stop = segm_start + timedelta(microseconds=segm['stopCut']*1e-3)
+def get_actual_schedule() -> list[dict]:
+    start = datetime.today()
+    sch = []
 
-    start, stop = datetime.fromtimestamp(start), datetime.fromtimestamp(stop)
-
-    print(start, stop, segm_start, segm_stop)
-
-    return start <= segm_start <= stop or start <= segm_stop <= stop
+    for segm in cl.schedule:
+        segm_start = datetime.strptime(segm['start'], r'%Y-%m-%dT%H:%M:%S.%fZ') + timedelta(hours=3)
+        segm_stop = segm_start + timedelta(microseconds=segm['stopCut']*1e-3)
+        if start < segm_stop:
+            sch.append(segm)
+    return sch
 
 def media_pretty(media: dict) -> str:
     return f'{media["name"]} \u2014 {media["author"]}'
 
 def segment_pretty(segm: dict) -> str:
-    segm_start = datetime.strptime(segm['start'], r'%Y-%m-%dT%H:%M:%S.%fZ')
+    segm_start = datetime.strptime(segm['start'], r'%Y-%m-%dT%H:%M:%S.%fZ') + timedelta(hours=3)
     segm_stop = segm_start + timedelta(microseconds=segm['stopCut']*1e-3)
 
     media = cl.get_media(segm['mediaID'])

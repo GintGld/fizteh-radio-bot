@@ -176,6 +176,7 @@ class client:
 
         try:
             res = api_instance.admin_schedule_post(body=body)
+            self.time_horizon += duration
             return res
         except ApiException as e:
             print("Exception when calling ScheduleApi->admin_schedule_post: %s\n" % e)

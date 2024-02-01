@@ -1,7 +1,9 @@
-import telebot
 import os
 import tempfile
+import random
 from datetime import (date, datetime, timedelta)
+
+import telebot
 from dotenv import load_dotenv
 
 from client import client
@@ -106,12 +108,13 @@ def schedule(msg: telebot.types.Message) -> None:
     markup = telebot.types.InlineKeyboardMarkup(row_width=1).add(
         telebot.types.InlineKeyboardButton("Сегодня", callback_data="0_schedule"),
         telebot.types.InlineKeyboardButton("Завтра", callback_data="1_schedule"),
-        telebot.types.InlineKeyboardButton("Послезавтра", callback_data="2_schedule")
+        telebot.types.InlineKeyboardButton("Послезавтра", callback_data="2_schedule"),
+        telebot.types.InlineKeyboardButton("Автодиджей", callback_data="autodj")
     )
 
     app.send_message(
         chat_id=user_id,
-        text='Выбери день',
+        text='Выбери день или авто диджея',
         reply_markup=markup
     )
 
@@ -159,6 +162,24 @@ def schedule_day(call: telebot.types.CallbackQuery) -> None:
         reply_markup=to_main_menu()
     )
 
+@app.callback_query_handler(lambda call: call.data == 'autodj')
+def schedule_day(call: telebot.types.CallbackQuery) -> None:
+    user_id = call.from_user.id
+
+    if len(cl.library) == 0:
+        app.send_message(
+            chat_id=user_id,
+            text='Упс, а у меня ничегошеньки нет, чтобы в расписание вставить...'
+        )
+        return
+
+    status[user_id] = 'autodj-hours'
+
+    app.send_message(
+        chat_id=user_id,
+        text='Сколько часов ты хочешь забить в расписании?'
+    )
+
 @app.callback_query_handler(lambda call: call.data == 'new-segment')
 def new_segment_ask_id(call: telebot.types.CallbackQuery) -> None:
     user_id = call.from_user.id
@@ -183,6 +204,8 @@ def text_message_handler(msg: telebot.types.Message) -> None:
             new_media_author(msg)
         case 'new-segment-id':
             new_segment_id(msg)
+        case 'autodj-hours':
+            autodj_hours(msg)
 
 @app.message_handler(content_types=['audio'])
 def upload_media(msg: telebot.types.Message) -> None:
@@ -204,6 +227,7 @@ def upload_media(msg: telebot.types.Message) -> None:
             chat_id=user_id,
             text='Я могу принять только .mp3 файл.'
         )
+        return
 
     file_info = app.get_file(audio.file_id)
     downloaded_file = app.download_file(file_info.file_path)
@@ -442,6 +466,73 @@ def library_search(msg: telebot.types.Message) -> None:
         text=text,
         reply_markup=markup
     )
+
+def autodj_hours(msg: telebot.types.Message) -> None:
+    user_id = msg.from_user.id
+
+    try:
+        hours = float(msg.text)
+    except Exception as e:
+        app.send_message(
+            chat_id=user_id,
+            text='Ты отправил мне что-то не то...'
+        )
+        return
+    
+    if hours < 0:
+        app.send_message(
+            chat_id=user_id,
+            text='Ты куда в минусы полез...'
+        )
+        return
+    if hours == 0:
+        app.send_message(
+            chat_id=user_id,
+            text='Ну, ноль так ноль. Делать ничего не буду.'
+        )
+        return
+    if hours > 24*3:
+        app.send_message(
+            chat_id=user_id,
+            text='Больше трех дней за раз, силен конечно. Давай в несколько заходов.'
+        )
+        return
+
+    sended_msg = app.send_message(
+        chat_id=user_id,
+        text='Работаем, радисты...'
+    )
+
+    media_to_send = []
+    duration_sum = timedelta(0)
+
+    while duration_sum < timedelta(hours=hours):
+        media = random.choice(cl.library)
+        media_to_send.append(media['id'])
+        duration_sum += timedelta(microseconds=media['duration']*1e-3)
+
+    for m in media_to_send:
+        try:
+            cl.new_segment(user_id, m)
+        except Exception as e:
+            print(f'failed to create new segment id={m} %s' %e)
+            fail_message(user_id)
+            return
+
+    try:
+        cl.update_schedule(user_id)
+    except Exception as e:
+        print(f'failed to update schedule %s' %e)
+        fail_message(user_id)
+        return
+
+    app.delete_message(user_id, sended_msg.message_id)
+    app.send_message(
+        chat_id=user_id,
+        text=f'Расписание забито до {cl.time_horizon.strftime(r"%Y-%m-%d %H:%M:%S")}'
+    )
+
+    status[user_id] = 'library-search'
 
 def search_alg(pattern: str, text: str) -> bool:
     return pattern in text

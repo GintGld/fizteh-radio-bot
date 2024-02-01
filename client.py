@@ -153,7 +153,7 @@ class client:
             print("Exception when calling ScheduleApi->admin_schedule_get: %s\n" % e)
             raise e
 
-    def new_segment(self, user_id: int, media_id: int) -> None:
+    def new_segment(self, user_id: int, media_id: int):
         self.__refresh_jwt_if_needed(user_id)
         
         api_instance = ScheduleApi(

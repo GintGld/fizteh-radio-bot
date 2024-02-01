@@ -621,7 +621,7 @@ def fail_message(user_id: int) -> None:
 def log(user_id: int, *args) -> None:
     now = datetime.now()
     args = now.strftime(f'[%Y-%m-%d %H:%M:%S, {user_id}] ') + ... + args
-    with open(LOG_DIR+'/bot.log', 'w') as wr:
+    with open(LOG_DIR+'/bot.log', 'a') as wr:
         print(*args, file=wr)
 
 if __name__ == '__main__':

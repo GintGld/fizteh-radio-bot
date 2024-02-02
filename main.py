@@ -652,13 +652,15 @@ def autodj_hours(msg: telebot.types.Message) -> None:
     indices = list(range(len(cl.library)))
     random.shuffle(indices)
     while duration_sum < timedelta(hours=hours):
-        media_id = indices.pop()
+        idx = indices.pop()
         if len(indices) == 0:
             indices = list(range(len(cl.library)))
             random.shuffle(indices)
+
+        media_id = cl.library[idx]['id']
         media_to_send.append(media_id)
 
-        duration = cl.library[media_id]['duration']
+        duration = cl.library[idx]['duration']
         duration_sum += timedelta(microseconds=duration*1e-3)
 
     for m in media_to_send:

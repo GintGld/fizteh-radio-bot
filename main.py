@@ -656,7 +656,7 @@ def autodj_hours(msg: telebot.types.Message) -> None:
             random.shuffle(indices)
         media_to_send.append(media_id)
 
-        duration = cl.get_media(media_id)['duration']
+        duration = cl.lirary[media_id]['duration']
         duration_sum += timedelta(microseconds=duration*1e-3)
 
     for m in media_to_send:

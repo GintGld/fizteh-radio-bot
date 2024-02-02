@@ -159,8 +159,9 @@ class client:
         api_instance = ScheduleApi(
             ApiClient(self.__config(user_id)))
         
-        if self.time_horizon is None:
-            self.time_horizon = datetime.now()
+        now = datetime.now()
+        if self.time_horizon is None or self.time_horizon < now:
+            self.time_horizon = now
 
         media = self.get_media(media_id)
         if media is None:

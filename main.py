@@ -167,13 +167,15 @@ def schedule_list(call: telebot.types.CallbackQuery) -> None:
 
     result = [segment_pretty(x) for x in schedule_cut[user_id][i*SCHEDULE_STEP:(i+1)*SCHEDULE_STEP]]
 
+    last = i * SCHEDULE_STEP < len(schedule_cut[user_id]) <= (i + 1) * SCHEDULE_STEP
+
     text = "\n".join(result) if len(result) != 0 else "Расписание пусто."
 
     app.edit_message_text(
         chat_id=user_id,
         message_id=call.message.message_id,
         text=text,
-        reply_markup=arrows_menu(i, len(result) == 0)
+        reply_markup=arrows_menu(i, last)
     )
 
 @app.callback_query_handler(lambda call: call.data == 'autodj')

@@ -208,13 +208,14 @@ def new_segment_ask_id(call: telebot.types.CallbackQuery) -> None:
 @app.message_handler(content_types=['text'])
 def text_message_handler(msg: telebot.types.Message) -> None:    
     user_id = msg.from_user.id
-    
+
+    if status[user_id] == 'candidate':
+        authorization(msg)
+
     if invalid_user(user_id):
         return
     
     match status[user_id]:
-        case 'candidate':
-            authorization(msg)
         case 'library-search':
             library_search(msg)
         case 'new-media-name':

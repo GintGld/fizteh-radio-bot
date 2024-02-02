@@ -205,12 +205,78 @@ def new_segment_ask_id(call: telebot.types.CallbackQuery) -> None:
         text='Введи номер композиции, которую ты хочешь добавить.'
     )
 
+@app.callback_query_handler(lambda call: call.data == 'new-media-send')
+def new_media_send(call: telebot.types.CallbackQuery) -> None:
+    user_id = call.from_user.id
+
+    if invalid_user(user_id):
+        return    
+
+    status[user_id] = None
+
+    sended_msg = app.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.id,
+        text='Отправляю...'
+    )
+
+    try:
+        cl.upload_media(
+            user_id, 
+            new_media_candidates[user_id]['name'],
+            new_media_candidates[user_id]['author'],
+            new_media_candidates[user_id]['source']
+        )
+    except Exception as e:
+        log(user_id, 'failed to upload media. %s' %e)
+        fail_message(user_id)
+        return
+
+    try:
+        cl.update_library(user_id)
+    except Exception as e:
+        log(user_id, 'failed to update library. %s' % e)
+        fail_message(user_id)
+        return
+
+    try:
+        os.remove(new_media_candidates[user_id]['source'])
+    except Exception as e:
+        log(user_id, 'failef to delete tmp file. %s' % e)
+    finally:
+        del new_media_candidates[user_id]
+
+    app.edit_message_text(
+        chat_id=user_id,
+        message_id=sended_msg.message_id,
+        text='Загружено!',
+        # reply_markup=main_menu()
+    )
+
+@app.callback_query_handler(lambda call: call.data == 'new-media-name')
+def new_media_name(call: telebot.types.CallbackQuery) -> None:
+    user_id = call.from_user.id
+
+    if invalid_user(user_id):
+        return
+    
+    status[user_id] = 'new-media-name'
+    new_media_candidates[user_id]['name'] = None
+    new_media_candidates[user_id]['author'] = None
+
+    app.edit_message_text(
+        chat_id=user_id,
+        message_id=call.message.message_id,
+        text="Отлично, теперь скажи мне название."
+    )
+
 @app.message_handler(content_types=['text'])
 def text_message_handler(msg: telebot.types.Message) -> None:    
     user_id = msg.from_user.id
 
     if status[user_id] == 'candidate':
         authorization(msg)
+        return
 
     if invalid_user(user_id):
         return
@@ -249,6 +315,11 @@ def upload_media(msg: telebot.types.Message) -> None:
         )
         return
 
+    sended_msg = app.send_message(
+        chat_id=user_id,
+        text="Качаю..."
+    )
+
     file_info = app.get_file(audio.file_id)
     downloaded_file = app.download_file(file_info.file_path)
 
@@ -263,8 +334,30 @@ def upload_media(msg: telebot.types.Message) -> None:
         'source' : filename,
     }
 
-    app.send_message(
+    if msg.audio.file_name.count(' - ') == 1:
+        author, name = msg.audio.file_name.split(' - ')
+        name = name.removesuffix('.mp3')
+        new_media_candidates[user_id]['name'] = name
+        new_media_candidates[user_id]['author'] = author
+        status[user_id] = None
+        app.edit_message_text(
+            chat_id=user_id,
+            message_id=sended_msg.message_id,
+            text=f"Название песни \"{name}\", а автор - \"{author}\"?"
+        )
+        app.edit_message_reply_markup(
+            chat_id=user_id,
+            message_id=sended_msg.message_id,
+            reply_markup=telebot.types.InlineKeyboardMarkup(row_width=2).add(
+                telebot.types.InlineKeyboardButton(text='Да', callback_data='new-media-send'),
+                telebot.types.InlineKeyboardButton(text='Нет', callback_data='new-media-name')
+            )
+        )
+        return
+
+    app.edit_message_text(
         chat_id=user_id,
+        message_id=sended_msg.message_id,
         text="Отлично, теперь скажи мне название."
     )
     status[user_id] = 'new-media-name'
@@ -407,6 +500,11 @@ def new_media_author(msg: telebot.types.Message) -> None:
     new_media_candidates[user_id]['author'] = author
     status[user_id] = None
 
+    sended_msg = app.send_message(
+        chat_id=user_id,
+        text='Отправляю...'
+    )
+
     try:
         cl.upload_media(
             user_id, 
@@ -433,10 +531,11 @@ def new_media_author(msg: telebot.types.Message) -> None:
     finally:
         del new_media_candidates[user_id]
 
-    app.send_message(
+    app.edit_message_text(
         chat_id=user_id,
+        message_id=sended_msg.message_id,
         text='Загружено!',
-        reply_markup=main_menu()
+        # reply_markup=main_menu()
     )
 
 def new_segment_id(msg: telebot.types.Message) -> None:
@@ -524,7 +623,7 @@ def autodj_hours(msg: telebot.types.Message) -> None:
     if hours < 0:
         app.send_message(
             chat_id=user_id,
-            text='Ты куда в минусы полез...'
+            text='Ты куда в минуса полез...'
         )
         return
     if hours == 0:
@@ -549,7 +648,9 @@ def autodj_hours(msg: telebot.types.Message) -> None:
     duration_sum = timedelta(0)
 
     while duration_sum < timedelta(hours=hours):
-        media = random.choice(cl.library)
+        media = {'id' : media_to_send[-1]}
+        while media['id'] == media_to_send[-1]:
+            media = random.choice(cl.library)
         media_to_send.append(media['id'])
         duration_sum += timedelta(microseconds=media['duration']*1e-3)
 
@@ -577,7 +678,7 @@ def autodj_hours(msg: telebot.types.Message) -> None:
     status[user_id] = 'library-search'
 
 def search_alg(pattern: str, text: str) -> bool:
-    return pattern in text
+    return pattern.lower() in text.lower()
 
 def get_actual_schedule() -> list[dict]:
     start = datetime.today()
@@ -626,4 +727,4 @@ def log(user_id: int, *args) -> None:
         print(*args, file=wr)
 
 if __name__ == '__main__':
-    app.polling()
+    app.polling(non_stop=True)

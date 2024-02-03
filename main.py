@@ -1,7 +1,7 @@
 import os
 import tempfile
 import random
-from datetime import (date, datetime, timedelta)
+from datetime import (datetime, timedelta)
 
 import telebot
 from dotenv import load_dotenv
@@ -736,4 +736,4 @@ def log(user_id: int, *args) -> None:
         print(now, *args, file=wr)
 
 if __name__ == '__main__':
-    app.polling(non_stop=True)
+    app.infinity_polling(timeout=10, long_polling_timeout = 5)

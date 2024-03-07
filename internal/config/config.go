@@ -8,8 +8,9 @@ import (
 )
 
 type Config struct {
-	Env     string `yaml:"env" env-required:"true"`
-	LogPath string `yaml:"log_path" env-default:""`
+	Env         string `yaml:"env" env-required:"true"`
+	LogPath     string `yaml:"log_path" env-default:""`
+	WebhookAddr string `yaml:"webhook_address" env-default:"8443"`
 }
 
 func MustLoad() *Config {

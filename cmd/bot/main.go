@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"os"
@@ -30,10 +31,11 @@ func main() {
 		log,
 		getTelegramToken(),
 		getYandexToken(),
+		cfg.WebhookAddr,
 	)
 
 	// Run bot
-	go app.Run()
+	go app.Run(context.Background())
 
 	// Graceful shutdown
 	stop := make(chan os.Signal, 1)

@@ -6,6 +6,9 @@ import (
 	"net/http"
 
 	"github.com/go-telegram/bot"
+
+	_ "github.com/GintGld/fizteh-radio-bot/internal/controller/help"
+	_ "github.com/GintGld/fizteh-radio-bot/internal/controller/start"
 )
 
 type App struct {
@@ -29,15 +32,36 @@ func New(
 		panic("failed to create bot")
 	}
 
-	server := &http.Server{
-		Addr:    webhookAddr,
-		Handler: bot.WebhookHandler(),
-	}
+	// TODO: implement Auth interface
+	// and define onError function,
+	// using logger.
+
+	// router := ctr.NewRouter(
+	// 	bot, session.New(),
+	// )
+
+	// start.Register(
+	// 	router,
+	// 	log,
+	// 	auth,
+	// 	session,
+	// 	onError,
+	// )
+
+	// help.Register(
+	// 	router,
+	// 	auth,
+	// 	session,
+	// 	onError,
+	// )
 
 	return &App{
-		log:     log,
-		bot:     bot,
-		server:  server,
+		log: log,
+		bot: bot,
+		server: &http.Server{
+			Addr:    webhookAddr,
+			Handler: bot.WebhookHandler(),
+		},
 		yaToken: yaToken,
 	}
 }

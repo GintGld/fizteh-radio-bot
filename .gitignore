@@ -6,3 +6,4 @@ tmp
 Taskfile.yaml
 **/__pycache__
 .vscode
+config/local.yaml

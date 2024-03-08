@@ -13,9 +13,13 @@ import (
 
 const (
 	keyLogin = "login"
+
+	cmdLogin = "/login"
+	cmdPass  = "/pass"
 )
 
 type Start struct {
+	router  *ctr.Router
 	log     *slog.Logger
 	auth    Auth
 	session ctr.Session
@@ -35,15 +39,16 @@ func Register(
 	onError bot.ErrorsHandler,
 ) {
 	app := &Start{
+		router:  router,
 		log:     log,
 		auth:    auth,
 		session: session,
 		onError: onError,
 	}
 
-	router.RegisterCommand("/start", app.init)
-	router.RegisterHandler("/start/login", app.login)
-	router.RegisterHandler("/start/pass", app.pass)
+	router.RegisterCommand(app.init)
+	router.RegisterHandler(cmdLogin, app.login)
+	router.RegisterHandler(cmdPass, app.pass)
 }
 
 // First what user will see.
@@ -63,7 +68,7 @@ func (s *Start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			s.onError(err)
 		}
 	} else {
-		s.session.Redirect(userId, "/start/login")
+		s.session.Redirect(userId, s.router.FullPath(cmdLogin))
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.HelloMessage,
@@ -90,7 +95,7 @@ func (s *Start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
 	}
 
 	s.session.Set(userId, keyLogin, login)
-	s.session.Redirect(userId, "/start/pass")
+	s.session.Redirect(userId, s.router.FullPath(cmdPass))
 
 	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: chatId,

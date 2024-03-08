@@ -12,11 +12,11 @@ func (s *schedule) mainMenuMarkup() models.InlineKeyboardMarkup {
 		InlineKeyboard: [][]models.InlineKeyboardButton{{
 			models.InlineKeyboardButton{
 				Text:         buttonLook,
-				CallbackData: cmdLook,
+				CallbackData: s.router.FullPath(cmdLook),
 			},
 			models.InlineKeyboardButton{
 				Text:         buttonDj,
-				CallbackData: cmdDj,
+				CallbackData: s.router.FullPath(cmdDj),
 			},
 		}},
 	}

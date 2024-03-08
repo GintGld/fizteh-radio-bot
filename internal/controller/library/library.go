@@ -10,13 +10,12 @@ import (
 )
 
 const (
-	base = "/lib"
-
-	cmdSearch = base + "/search"
-	cmdUpload = base + "/upload"
+	cmdSearch = "/search"
+	cmdUpload = "/upload"
 )
 
 type library struct {
+	router  *ctr.Router
 	auth    Auth
 	session ctr.Session
 	onError bot.ErrorsHandler
@@ -34,12 +33,13 @@ func Register(
 	onError bot.ErrorsHandler,
 ) {
 	l := library{
+		router: router,
 		auth:    auth,
 		session: session,
 		onError: onError,
 	}
 
-	router.RegisterCommand(base, l.libraryMainMenu)
+	router.RegisterCommand(l.libraryMainMenu)
 	router.RegisterCallback(cmdSearch, l.search)
 	router.RegisterCallback(cmdUpload, l.upload)
 }

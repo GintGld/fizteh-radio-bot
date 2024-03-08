@@ -20,7 +20,7 @@ func Register(
 	session ctr.Session,
 	onError bot.ErrorsHandler,
 ) {
-	router.RegisterCommand("/help", func(ctx context.Context, b *bot.Bot, update *models.Update) {
+	router.RegisterCommand(func(ctx context.Context, b *bot.Bot, update *models.Update) {
 		userId := update.Message.From.ID
 		chatId := update.Message.Chat.ID
 

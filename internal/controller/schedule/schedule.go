@@ -10,13 +10,12 @@ import (
 )
 
 const (
-	base = "/sch"
-
-	cmdLook = base + "/look"
-	cmdDj   = base + "/dj"
+	cmdLook = "/look"
+	cmdDj   = "/dj"
 )
 
 type schedule struct {
+	router  *ctr.Router
 	auth    Auth
 	session ctr.Session
 	onError bot.ErrorsHandler
@@ -28,18 +27,19 @@ type Auth interface {
 }
 
 func Register(
-	router ctr.Router,
+	router *ctr.Router,
 	auth Auth,
 	session ctr.Session,
 	onError bot.ErrorsHandler,
 ) {
 	s := schedule{
+		router:  router,
 		auth:    auth,
 		session: session,
 		onError: onError,
 	}
 
-	router.RegisterCommand(base, s.init)
+	router.RegisterCommand(s.init)
 	router.RegisterCallback(cmdLook, s.look)
 	router.RegisterCallback(cmdDj, s.dj)
 }

@@ -9,14 +9,15 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
+	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/storage"
 )
 
 const (
-	keyLogin = "login"
-
-	cmdLogin = "/login"
-	cmdPass  = "/pass"
+	cmdLogin = "login"
+	cmdPass  = "pass"
 )
+
+// TODO delete messages with login and password after authorization.
 
 type Start struct {
 	router  *ctr.Router
@@ -24,6 +25,8 @@ type Start struct {
 	auth    Auth
 	session ctr.Session
 	onError bot.ErrorsHandler
+
+	loginStorage storage.Storage[string]
 }
 
 type Auth interface {
@@ -44,6 +47,8 @@ func Register(
 		auth:    auth,
 		session: session,
 		onError: onError,
+
+		loginStorage: storage.Storage[string]{},
 	}
 
 	router.RegisterCommand(app.init)
@@ -68,7 +73,7 @@ func (s *Start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			s.onError(err)
 		}
 	} else {
-		s.session.Redirect(userId, s.router.FullPath(cmdLogin))
+		s.session.Redirect(userId, s.router.Path(cmdLogin))
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.HelloMessage,
@@ -94,8 +99,8 @@ func (s *Start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
 		return
 	}
 
-	s.session.Set(userId, keyLogin, login)
-	s.session.Redirect(userId, s.router.FullPath(cmdPass))
+	s.loginStorage.Set(userId, login)
+	s.session.Redirect(userId, s.router.Path(cmdPass))
 
 	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: chatId,
@@ -121,7 +126,7 @@ func (s *Start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 		return
 	}
 
-	login := s.session.Get(userId, keyLogin)
+	login := s.loginStorage.Get(userId)
 
 	if err := s.auth.Login(login, pass); err != nil {
 		// TODO: error statuses
@@ -134,7 +139,7 @@ func (s *Start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 		return
 	}
 
-	s.session.Del(userId, login)
+	s.loginStorage.Del(userId)
 	s.session.Redirect(userId, ctr.NullStatus)
 
 	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{

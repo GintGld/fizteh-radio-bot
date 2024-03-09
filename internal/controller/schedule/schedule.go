@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	cmdLook = "/look"
-	cmdDj   = "/dj"
+	cmdLook = "look"
+	cmdDj   = "dj"
 )
 
 type schedule struct {

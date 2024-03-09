@@ -7,11 +7,13 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/library/search"
+	localModels "github.com/GintGld/fizteh-radio-bot/internal/models"
 )
 
 const (
-	cmdSearch = "/search"
-	cmdUpload = "/upload"
+	cmdSearch = "search"
+	cmdUpload = "upload"
 )
 
 type library struct {
@@ -26,22 +28,34 @@ type Auth interface {
 	Login(login, pass string) error
 }
 
+type LibrarySearch interface {
+	Search(localModels.MediaFilter) ([]localModels.Media, error)
+}
+
 func Register(
 	router *ctr.Router,
 	auth Auth,
+	libSearch LibrarySearch,
 	session ctr.Session,
 	onError bot.ErrorsHandler,
 ) {
 	l := library{
-		router: router,
+		router:  router,
 		auth:    auth,
 		session: session,
 		onError: onError,
 	}
 
 	router.RegisterCommand(l.libraryMainMenu)
-	router.RegisterCallback(cmdSearch, l.search)
-	router.RegisterCallback(cmdUpload, l.upload)
+
+	search.Register(
+		router.With("search"),
+		libSearch,
+		session,
+		onError,
+	)
+
+	router.RegisterCallback(cmdUpload, l.handleUpload)
 }
 
 func (l *library) libraryMainMenu(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -67,10 +81,6 @@ func (l *library) libraryMainMenu(ctx context.Context, b *bot.Bot, update *model
 	}
 }
 
-func (l *library) search(ctx context.Context, b *bot.Bot, update *models.Update) {
-	// TODO
-}
-
-func (l *library) upload(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (l *library) handleUpload(ctx context.Context, b *bot.Bot, update *models.Update) {
 	// TODO
 }

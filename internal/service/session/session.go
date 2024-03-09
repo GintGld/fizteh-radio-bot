@@ -6,59 +6,33 @@ import "sync"
 // implementation for
 // controller.Session
 // interface.
-type MapCache struct {
+type MapCache[T comparable] struct {
 	// Users routing
-	paths map[int64]string
+	paths map[int64]T
 
 	// Session cache
-	users map[int64]map[string]string
+	users map[int64]map[T]T
 
 	// Mutex per user
 	mutexes map[int64]sync.Mutex
 }
 
-func New() *MapCache {
-	return &MapCache{
-		paths:   make(map[int64]string),
-		users:   make(map[int64]map[string]string),
+func New[T comparable]() *MapCache[T] {
+	return &MapCache[T]{
+		paths:   make(map[int64]T),
+		users:   make(map[int64]map[T]T),
 		mutexes: make(map[int64]sync.Mutex),
 	}
 }
 
-func (s *MapCache) Status(id int64) string {
+func (s *MapCache[T]) Status(id int64) T {
 	if res, ok := s.paths[id]; ok {
 		return res
 	} else {
-		return ""
+		return *new(T)
 	}
 }
 
-func (s *MapCache) Redirect(id int64, path string) {
+func (s *MapCache[T]) Redirect(id int64, path T) {
 	s.paths[id] = path
-}
-
-func (s *MapCache) Get(id int64, key string) string {
-	if user, ok := s.users[id]; ok {
-		if res, exists := user[key]; exists {
-			return res
-		} else {
-			return ""
-		}
-	} else {
-		return ""
-	}
-}
-
-func (s *MapCache) Set(id int64, key string, value string) {
-	if _, ok := s.users[id]; ok {
-		s.users[id][key] = value
-	} else {
-		s.users[id] = map[string]string{key: value}
-	}
-}
-
-func (s *MapCache) Del(id int64, key string) {
-	if _, ok := s.users[id]; ok {
-		delete(s.users[id], key)
-	}
 }

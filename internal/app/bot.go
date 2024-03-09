@@ -41,7 +41,7 @@ func New(
 	// )
 
 	// start.Register(
-	// 	router,
+	// 	router.With("start"),
 	// 	log,
 	// 	auth,
 	// 	session,
@@ -49,7 +49,7 @@ func New(
 	// )
 
 	// help.Register(
-	// 	router,
+	// 	router.With("help"),
 	// 	auth,
 	// 	session,
 	// 	onError,

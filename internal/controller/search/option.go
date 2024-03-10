@@ -3,9 +3,11 @@ package search
 import (
 	"context"
 
-	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+
+	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
+	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/split"
 )
 
 func (s *Search) updateState(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -39,13 +41,13 @@ func (s *Search) updateState(ctx context.Context, b *bot.Bot, update *models.Upd
 			opt.format = formatAll
 		}
 	case cmdPlaylist:
-		opt.playlists = splitMsg(msg)
+		opt.playlists = split.SplitMsg(msg)
 	case cmdGenre:
-		opt.genres = splitMsg(msg)
+		opt.genres = split.SplitMsg(msg)
 	case cmdLanguage:
-		opt.languages = splitMsg(msg)
+		opt.languages = split.SplitMsg(msg)
 	case cmdMood:
-		opt.moods = splitMsg(msg)
+		opt.moods = split.SplitMsg(msg)
 	default:
 		s.mediaResults.Del(userId)
 	}

@@ -25,6 +25,9 @@ const NullStatus string = "/null"
 
 type OnCancelHandler func(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage)
 
+// TODO make one function for answer callback for all controllers.
+// Or make an inheritance after struct with this method.
+
 // TODO: create struct, parse replicas to it, use in all controllers.
 // And move this code to nother file in the same package.
 // // // go:embed replicas.yaml
@@ -56,6 +59,23 @@ const (
 
 	// "/lib/search/pick"
 	LibSearchPickSelecting = "Выбор даты и времени."
+
+	// "/lib/upload"
+	LibUpload                = "Выбери вариант загрузки."
+	LibUploadAskFile         = "Отлично, отправь мне файл для скачивания."
+	LibUploadFileNotFound    = "Ты не отправил(а) мне файл."
+	LibUploadInvalidMimeType = "Я пока могу кушать только .mp3 файлы :("
+	LibUploadAskName         = "Название для файла."
+	LibUploadAskAuthor       = "Имя автора."
+	LibUploadAskGenre        = "Введи через запятую жанры."
+	LibUploadAskFormat       = "Песня или подкаст?"
+	LibUploadAskPlaylist     = "Введи через запятую плейлисты, куда добавить песню."
+	LibUploadAskPodcast      = "Введи через запятую сезоны, куда добавить подкаст."
+	LibUploadAskLang         = "Введи через запятую языки."
+	LibUploadAskMood         = "Введи через запятую настроения."
+	LibUploadAskLink         = "Отправь мне ссылку на скачивание. Поддерживаемые сервисы на данный момент: Яндекс."
+	LibUploadSuccess         = "Загружено!"
+	LibUploadErrEmptyMsg     = "Не надо делать пустое поле..."
 
 	// "/sch" command
 	SchMainMenuMessage = "Можем посмотреть расписание или настроить авто диджея."

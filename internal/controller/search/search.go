@@ -301,15 +301,6 @@ func (s *Search) mediaRepr(media localModels.Media) string {
 	return b.String()
 }
 
-// splitMsg splits string
-func splitMsg(s string) (l []string) {
-	l = make([]string, 0)
-	for _, el := range strings.Split(s, ",") {
-		l = append(l, strings.TrimSpace(el))
-	}
-	return
-}
-
 func (s *Search) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
 	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: callbackQuery.ID,

@@ -21,6 +21,8 @@ const (
 	butMsgCancel = "Назад"
 )
 
+// TODO: disable playlist or podcast buttons
+// via format state.
 func (s *Search) mainMenuMarkup() models.InlineKeyboardMarkup {
 	return models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{

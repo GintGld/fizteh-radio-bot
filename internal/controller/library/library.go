@@ -8,7 +8,7 @@ import (
 
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/search"
-	localModels "github.com/GintGld/fizteh-radio-bot/internal/models"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/upload"
 )
 
 const (
@@ -28,21 +28,15 @@ type Auth interface {
 	Login(login, pass string) error
 }
 
-type LibrarySearch interface {
-	Search(localModels.MediaFilter) ([]localModels.Media, error)
-}
-
-type ScheduleAdd interface {
-	NewSegment(s localModels.Segment) error
-}
-
 func Register(
 	router *ctr.Router,
 	auth Auth,
-	libSearch LibrarySearch,
-	scheduleAdd ScheduleAdd,
+	libSearch search.LibrarySearch,
+	scheduleAdd search.ScheduleAdd,
+	mediaUpload upload.MediaUpload,
 	session ctr.Session,
 	onError bot.ErrorsHandler,
+	tmpDir string,
 ) {
 	l := library{
 		router:  router,
@@ -62,7 +56,14 @@ func Register(
 		onError,
 	)
 
-	router.RegisterCallback(cmdUpload, l.handleUpload)
+	upload.Register(
+		router.With("upload"),
+		mediaUpload,
+		session,
+		l.cancelSubmodule,
+		onError,
+		tmpDir,
+	)
 }
 
 func (l *library) libraryMainMenu(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -86,10 +87,6 @@ func (l *library) libraryMainMenu(ctx context.Context, b *bot.Bot, update *model
 	}); err != nil {
 		l.onError(err)
 	}
-}
-
-func (l *library) handleUpload(ctx context.Context, b *bot.Bot, update *models.Update) {
-	// TODO
 }
 
 func (l *library) cancelSubmodule(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage) {

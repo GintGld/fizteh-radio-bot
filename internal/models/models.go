@@ -15,6 +15,41 @@ type Media struct {
 	Tags     TagList       `json:"tags"`
 }
 
+type MediaConfig struct {
+	Name      string
+	Author    string
+	Duration  time.Duration
+	Format    MediaFormat
+	Playlists []string
+	Podcasts  []string
+	Genres    []string
+	Languages []string
+	Moods     []string
+}
+
+type MediaFormat int
+
+const (
+	Song MediaFormat = iota
+	Podcast
+)
+
+type LinkDownloadResult struct {
+	Type     ResultType
+	Media    Media
+	Playlist struct {
+		Name   string
+		Values []Media
+	}
+}
+
+type ResultType int
+
+const (
+	ResSong ResultType = iota
+	ResPlaylist
+)
+
 type MediaFilter struct {
 	Name       string
 	Author     string

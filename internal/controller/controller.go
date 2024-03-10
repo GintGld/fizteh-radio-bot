@@ -1,7 +1,11 @@
 package controller
 
 import (
+	"context"
 	_ "embed"
+
+	"github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
 )
 
 // Analogue for web cookies.
@@ -18,6 +22,8 @@ type Command string
 // Status used to define
 // when session is closed.
 const NullStatus string = "/null"
+
+type OnCancelHandler func(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage)
 
 // TODO: create struct, parse replicas to it, use in all controllers.
 // And move this code to nother file in the same package.
@@ -47,6 +53,9 @@ const (
 	LibSearchAskMood            = "Отлично, введи нвстроения через запятую."
 	LibSearchErrNameAuthorEmpty = "А почему название пустое?"
 	LibSearchErrNilOption       = "Ты так получишь фиг знает что, настрой поиск получше."
+
+	// "/lib/search/pick"
+	LibSearchPickSelecting = "Выбор даты и времени."
 
 	// "/sch" command
 	SchMainMenuMessage = "Можем посмотреть расписание или настроить авто диджея."

@@ -7,7 +7,7 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
-	"github.com/GintGld/fizteh-radio-bot/internal/controller/library/search"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/search"
 	localModels "github.com/GintGld/fizteh-radio-bot/internal/models"
 )
 
@@ -32,10 +32,15 @@ type LibrarySearch interface {
 	Search(localModels.MediaFilter) ([]localModels.Media, error)
 }
 
+type ScheduleAdd interface {
+	NewSegment(s localModels.Segment) error
+}
+
 func Register(
 	router *ctr.Router,
 	auth Auth,
 	libSearch LibrarySearch,
+	scheduleAdd ScheduleAdd,
 	session ctr.Session,
 	onError bot.ErrorsHandler,
 ) {
@@ -51,7 +56,9 @@ func Register(
 	search.Register(
 		router.With("search"),
 		libSearch,
+		scheduleAdd,
 		session,
+		l.cancelSubmodule,
 		onError,
 	)
 
@@ -83,4 +90,16 @@ func (l *library) libraryMainMenu(ctx context.Context, b *bot.Bot, update *model
 
 func (l *library) handleUpload(ctx context.Context, b *bot.Bot, update *models.Update) {
 	// TODO
+}
+
+func (l *library) cancelSubmodule(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage) {
+	chatId := mes.Message.Chat.ID
+
+	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:      chatId,
+		Text:        ctr.LibMainMenuMessage,
+		ReplyMarkup: l.mainMenuMarkup(),
+	}); err != nil {
+		l.onError(err)
+	}
 }

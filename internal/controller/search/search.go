@@ -10,13 +10,18 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/datetime"
 	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/storage"
 	localModels "github.com/GintGld/fizteh-radio-bot/internal/models"
 )
 
 const (
-	cmdBase          ctr.Command = ""
-	cmdSubmit        ctr.Command = "text"
+	// basic
+	cmdBase   ctr.Command = ""
+	cmdSubmit ctr.Command = "text"
+	cmdCancel ctr.Command = "cancel"
+
+	// options
 	cmdNameAuthor    ctr.Command = "nameauthor"
 	cmdFormat        ctr.Command = "format"
 	cmdFormatAll     ctr.Command = "format-all"
@@ -28,27 +33,36 @@ const (
 	cmdMood          ctr.Command = "mood"
 	cmdUpdateOption  ctr.Command = "update"
 
+	// media slider
 	cmdNextSlide   ctr.Command = "next-slide"
 	cmdPrevSlide   ctr.Command = "prev-slide"
 	cmdCloseSlider ctr.Command = "cancel"
+	cmdSelectMedia ctr.Command = "select"
 
+	// filler
 	cmdNoOp ctr.Command = "no-op"
 )
 
 type Search struct {
-	router  *ctr.Router
-	search  LibrarySearch
-	session ctr.Session
-	onError bot.ErrorsHandler
+	router   *ctr.Router
+	search   LibrarySearch
+	session  ctr.Session
+	onCancel ctr.OnCancelHandler
+	onError  bot.ErrorsHandler
 
 	searchStorage       storage.Storage[searchOption]
 	targetUpdateStorage storage.Storage[ctr.Command]
 	mediaPage           storage.Storage[int]
 	mediaResults        storage.Storage[[]localModels.Media]
+	mediaSelected       storage.Storage[localModels.Media]
 }
 
 type LibrarySearch interface {
 	Search(localModels.MediaFilter) ([]localModels.Media, error)
+}
+
+type ScheduleAdd interface {
+	NewSegment(s localModels.Segment) error
 }
 
 type searchOption struct {
@@ -73,14 +87,17 @@ var defaultOption = searchOption{format: formatAll}
 func Register(
 	router *ctr.Router,
 	search LibrarySearch,
+	scheduleAdd ScheduleAdd,
 	session ctr.Session,
+	onCancel ctr.OnCancelHandler,
 	onError bot.ErrorsHandler,
 ) {
 	s := Search{
-		router:  router,
-		search:  search,
-		session: session,
-		onError: onError,
+		router:   router,
+		search:   search,
+		session:  session,
+		onCancel: onCancel,
+		onError:  onError,
 
 		searchStorage:       storage.Storage[searchOption]{},
 		targetUpdateStorage: storage.Storage[ctr.Command]{},
@@ -113,15 +130,27 @@ func Register(
 	router.RegisterCallback(cmdPrevSlide, s.prevMediaSlide)
 	router.RegisterCallback(cmdCloseSlider, s.updateState)
 
-	// null handler to answer callbacks for empty buttons.
+	// selector for schedule modify
+	datetime.Register(
+		router.With(cmdSelectMedia),
+		scheduleAdd,
+		session,
+		s.canceledDateTimeSelector,
+		onError,
+		s.mediaSelected,
+	)
+
+	router.RegisterCallback(cmdCancel, s.cancelSearch)
+
+	// null handler to answer callbacks for empty buttons
 	router.RegisterCallback(cmdNoOp, s.nullHandler)
 }
 
 func (s *Search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 	s.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
+	userId := update.CallbackQuery.From.ID
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
 	s.searchStorage.Set(userId, defaultOption)
 
@@ -134,9 +163,9 @@ func (s *Search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 	}
 }
 
-// getSearchText get text to search,
-// fix seach options and returns found
-// media.
+// submit gets text to search,
+// search option and returns
+// slider for found media.
 func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) {
 	userId := update.Message.From.ID
 	chatId := update.Message.Chat.ID
@@ -165,6 +194,7 @@ func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 
 	s.mediaPage.Set(userId, 1)
 	s.mediaResults.Set(userId, res)
+	s.mediaSelected.Set(userId, res[0])
 
 	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      chatId,
@@ -176,274 +206,13 @@ func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 	}
 }
 
-func (s *Search) nameAuthor(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *Search) cancelSearch(ctx context.Context, b *bot.Bot, update *models.Update) {
 	s.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	s.targetUpdateStorage.Set(userId, cmdNameAuthor)
-	s.session.Redirect(userId, s.router.Path(cmdUpdateOption))
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatId,
-		Text:   ctr.LibSearchAskNameAuthror,
-	}); err != nil {
-		s.onError(err)
-	}
-}
-
-func (s *Search) format(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	opt := s.searchStorage.Get(userId)
-	switch opt.format {
-	case formatAll:
-		opt.format = formatSong
-	case formatSong:
-		opt.format = formatPodcast
-	case formatPodcast:
-		opt.format = formatAll
-	}
-	s.searchStorage.Set(userId, opt)
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatId,
-		Text:        ctr.LibSearchAskFormat,
-		ReplyMarkup: s.formatSelectMarkup(),
-	}); err != nil {
-		s.onError(err)
-	}
-}
-
-func (s *Search) formatAll(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	opt := s.searchStorage.Get(userId)
-	opt.format = formatAll
-	s.searchStorage.Set(userId, opt)
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatId,
-		Text:        s.filterRepr(userId),
-		ReplyMarkup: s.mainMenuMarkup(),
-	}); err != nil {
-		s.onError(err)
-	}
-}
-
-func (s *Search) formatPodcast(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	opt := s.searchStorage.Get(userId)
-	opt.format = formatPodcast
-	s.searchStorage.Set(userId, opt)
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatId,
-		Text:        s.filterRepr(userId),
-		ReplyMarkup: s.mainMenuMarkup(),
-	}); err != nil {
-		s.onError(err)
-	}
-}
-
-func (s *Search) formatSong(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	opt := s.searchStorage.Get(userId)
-	opt.format = formatSong
-	s.searchStorage.Set(userId, opt)
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatId,
-		Text:        s.filterRepr(userId),
-		ReplyMarkup: s.mainMenuMarkup(),
-	}); err != nil {
-		s.onError(err)
-	}
-}
-
-func (s *Search) playlist(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	s.targetUpdateStorage.Set(userId, cmdPlaylist)
-	s.session.Redirect(userId, s.router.Path(cmdUpdateOption))
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatId,
-		Text:   ctr.LibSearchAskPlaylist,
-	}); err != nil {
-		s.onError(err)
-	}
-}
-
-func (s *Search) genre(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	s.targetUpdateStorage.Set(userId, cmdGenre)
-	s.session.Redirect(userId, s.router.Path(cmdUpdateOption))
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatId,
-		Text:   ctr.LibSearchAskGenre,
-	}); err != nil {
-		s.onError(err)
-	}
-}
-
-func (s *Search) language(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	s.targetUpdateStorage.Set(userId, cmdGenre)
-	s.session.Redirect(userId, s.router.Path(cmdUpdateOption))
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatId,
-		Text:   ctr.LibSearchAskLanguage,
-	}); err != nil {
-		s.onError(err)
-	}
-}
-
-func (s *Search) mood(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	s.targetUpdateStorage.Set(userId, cmdMood)
-	s.session.Redirect(userId, s.router.Path(cmdUpdateOption))
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatId,
-		Text:   ctr.LibSearchAskMood,
-	}); err != nil {
-		s.onError(err)
-	}
-}
-
-func (s *Search) updateState(ctx context.Context, b *bot.Bot, update *models.Update) {
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	msg := update.Message.Text
-	target := s.targetUpdateStorage.Get(userId)
-
-	opt := s.searchStorage.Get(userId)
-
-	switch target {
-	case cmdNameAuthor:
-		if msg == "" {
-			if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID: chatId,
-				Text:   ctr.LibSearchErrNameAuthorEmpty,
-			}); err != nil {
-				s.onError(err)
-			}
-			return
-		}
-		opt.nameAuthor = msg
-	case cmdFormat:
-		switch opt.format {
-		case formatAll:
-			opt.format = formatSong
-		case formatSong:
-			opt.format = formatPodcast
-		case formatPodcast:
-			opt.format = formatAll
-		}
-	case cmdPlaylist:
-		opt.playlists = splitMsg(msg)
-	case cmdGenre:
-		opt.genres = splitMsg(msg)
-	case cmdLanguage:
-		opt.languages = splitMsg(msg)
-	case cmdMood:
-		opt.moods = splitMsg(msg)
-	default:
-		s.mediaResults.Del(userId)
-	}
-
-	s.targetUpdateStorage.Set(userId, "")
-	s.searchStorage.Set(userId, opt)
-	s.session.Redirect(userId, ctr.NullStatus)
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatId,
-		Text:        s.filterRepr(userId),
-		ParseMode:   models.ParseModeMarkdown,
-		ReplyMarkup: s.formatSelectMarkup(),
-	}); err != nil {
-		s.onError(err)
-	}
-}
-
-func (s *Search) nextMediaSlide(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	id := s.mediaPage.Get(userId) + 1
-	s.mediaPage.Set(userId, id)
-
-	res := s.mediaResults.Get(userId)
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatId,
-		Text:        s.mediaRepr(res[id-1]),
-		ParseMode:   models.ParseModeMarkdown,
-		ReplyMarkup: s.mediaSliderMarkup(id, len(res)),
-	}); err != nil {
-		s.onError(err)
-	}
-}
-
-func (s *Search) prevMediaSlide(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
-
-	id := s.mediaPage.Get(userId) - 1
-	s.mediaPage.Set(userId, id)
-
-	res := s.mediaResults.Get(userId)
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatId,
-		Text:        s.mediaRepr(res[id-1]),
-		ParseMode:   models.ParseModeMarkdown,
-		ReplyMarkup: s.mediaSliderMarkup(id, len(res)),
-	}); err != nil {
-		s.onError(err)
-	}
+	s.onCancel(ctx, b, update.CallbackQuery.Message)
 }
 
 // TODO: update
-// TODO: add to schedule
 
 func (s *Search) nullHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	s.callbackAnswer(ctx, b, update.CallbackQuery)

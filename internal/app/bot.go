@@ -32,6 +32,8 @@ func New(
 		panic("failed to create bot")
 	}
 
+	// TODO: default handler
+
 	// TODO: implement Auth interface
 	// and define onError function,
 	// using logger.

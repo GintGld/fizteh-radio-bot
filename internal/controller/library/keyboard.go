@@ -14,11 +14,11 @@ func (l *library) mainMenuMarkup() models.InlineKeyboardMarkup {
 		InlineKeyboard: [][]models.InlineKeyboardButton{{
 			models.InlineKeyboardButton{
 				Text:         buttonSearch,
-				CallbackData: l.router.FullPath(cmdSearch),
+				CallbackData: l.router.Path(cmdSearch),
 			},
 			models.InlineKeyboardButton{
 				Text:         buttonUpload,
-				CallbackData: l.router.FullPath(cmdUpload),
+				CallbackData: l.router.Path(cmdUpload),
 			},
 		}},
 	}

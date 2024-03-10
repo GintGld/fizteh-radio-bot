@@ -84,8 +84,8 @@ func (s *Search) mediaSliderMarkup(id int, maxId int) models.InlineKeyboardMarku
 				butRight,
 			},
 			{
-				{Text: "В расписание", CallbackData: s.router.Path(cmdNoOp)},  // TODO
-				{Text: "Редактировать", CallbackData: s.router.Path(cmdNoOp)}, //TODO
+				{Text: "В расписание", CallbackData: s.router.Path(cmdSelectMedia)},
+				{Text: "Редактировать", CallbackData: s.router.Path(cmdNoOp)}, // TODO
 			},
 			{
 				{Text: "Назад", CallbackData: s.router.Path(cmdCloseSlider)},

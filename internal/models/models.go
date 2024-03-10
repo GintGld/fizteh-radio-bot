@@ -35,3 +35,12 @@ type TagType struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
 }
+
+type Segment struct {
+	ID        int64         `json:"id"`
+	MediaID   int64         `json:"mediaID"`
+	Start     time.Time     `json:"start"`
+	BeginCut  time.Duration `json:"beginCut"`
+	StopCut   time.Duration `json:"stopCut"`
+	Protected bool          `json:"protected"`
+}

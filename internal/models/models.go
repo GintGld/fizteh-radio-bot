@@ -57,6 +57,14 @@ type MediaFilter struct {
 	MaxRespLen int
 }
 
+type AutoDJConfig struct {
+	IsPlaying bool
+	Genres    []string
+	Playlists []string
+	Languages []string
+	Moods     []string
+}
+
 type TagTypes []TagType
 type TagList []Tag
 
@@ -73,7 +81,7 @@ type TagType struct {
 
 type Segment struct {
 	ID        int64         `json:"id"`
-	MediaID   int64         `json:"mediaID"`
+	Media     Media         `json:"mediaID"`
 	Start     time.Time     `json:"start"`
 	BeginCut  time.Duration `json:"beginCut"`
 	StopCut   time.Duration `json:"stopCut"`

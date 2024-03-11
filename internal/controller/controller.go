@@ -80,6 +80,12 @@ const (
 	// "/sch" command
 	SchMainMenuMessage = "Можем посмотреть расписание или настроить авто диджея."
 
+	// "/sch/autodj"
+	SchAutoDJAskGenre    = "Введи через запятую жанры."
+	SchAutoDJAskPlaylist = "Введи через запятую плейлисты, куда добавить песню."
+	SchAutoDJAskLanguage = "Введи через запятую языки."
+	SchAutoDJAskMood     = "Введи через запятую настроения."
+
 	// TODO: write help message
 
 	// "/help" command

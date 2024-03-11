@@ -7,6 +7,8 @@ import (
 	"github.com/go-telegram/bot/models"
 
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/autodj"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/look"
 )
 
 const (
@@ -29,6 +31,8 @@ type Auth interface {
 func Register(
 	router *ctr.Router,
 	auth Auth,
+	sch look.Schedule,
+	dj autodj.AutoDJ,
 	session ctr.Session,
 	onError bot.ErrorsHandler,
 ) {
@@ -40,8 +44,23 @@ func Register(
 	}
 
 	router.RegisterCommand(s.init)
-	router.RegisterCallback(cmdLook, s.look)
-	router.RegisterCallback(cmdDj, s.dj)
+
+	look.Register(
+		router.With(cmdLook),
+		sch,
+		session,
+		s.cancelSubmodule,
+		onError,
+	)
+
+	autodj.Register(
+		router.With(cmdDj),
+		dj,
+		session,
+		s.cancelSubmodule,
+		onError,
+	)
+
 }
 
 func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -67,10 +86,14 @@ func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) 
 	}
 }
 
-func (s *schedule) look(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *schedule) cancelSubmodule(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage) {
+	chatId := mes.Message.Chat.ID
 
-}
-
-func (s *schedule) dj(ctx context.Context, b *bot.Bot, update *models.Update) {
-
+	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:      chatId,
+		Text:        ctr.SchMainMenuMessage,
+		ReplyMarkup: s.mainMenuMarkup(),
+	}); err != nil {
+		s.onError(err)
+	}
 }

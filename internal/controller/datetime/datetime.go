@@ -49,7 +49,7 @@ func Register(
 	onError bot.ErrorsHandler,
 	mediaStorage storage.Storage[localModels.Media],
 ) {
-	p := picker{
+	p := &picker{
 		router:   router,
 		schedule: schedule,
 		session:  session,
@@ -123,7 +123,7 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 
 	media := p.mediaStorage.Get(userId)
 	segm := localModels.Segment{
-		MediaID:   media.ID,
+		Media:     media,
 		Start:     date,
 		BeginCut:  0,
 		StopCut:   media.Duration,

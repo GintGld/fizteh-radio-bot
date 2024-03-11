@@ -38,7 +38,7 @@ func Register(
 	onError bot.ErrorsHandler,
 	tmpDir string,
 ) {
-	l := library{
+	l := &library{
 		router:  router,
 		auth:    auth,
 		session: session,

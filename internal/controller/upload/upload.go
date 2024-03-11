@@ -64,7 +64,7 @@ func Register(
 	onError bot.ErrorsHandler,
 	tmpDir string,
 ) {
-	u := upload{
+	u := &upload{
 		router:      router,
 		mediaUpload: mediaUpload,
 		session:     session,

@@ -69,8 +69,9 @@ func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.
 		msg = u.mediaConfRepr(conf)
 
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: chatId,
-			Text:   msg,
+			ChatID:    chatId,
+			Text:      msg,
+			ParseMode: models.ParseModeMarkdown,
 		}); err != nil {
 			u.onError(err)
 		}
@@ -135,6 +136,7 @@ func (u *upload) getSettingNewData(ctx context.Context, b *bot.Bot, update *mode
 		ChatID:      chatId,
 		Text:        u.mediaConfRepr(conf),
 		ReplyMarkup: u.mediaConfMarkup(conf),
+		ParseMode:   models.ParseModeMarkdown,
 	}); err != nil {
 		u.onError(err)
 	}
@@ -161,6 +163,7 @@ func (u *upload) updateFormat(ctx context.Context, b *bot.Bot, update *models.Up
 		ChatID:      chatId,
 		Text:        u.mediaConfRepr(conf),
 		ReplyMarkup: u.mediaConfMarkup(conf),
+		ParseMode:   models.ParseModeMarkdown,
 	}); err != nil {
 		u.onError(err)
 	}
@@ -178,6 +181,7 @@ func (u *upload) cancelSubTask(ctx context.Context, b *bot.Bot, update *models.U
 		ChatID:      chatId,
 		Text:        u.mediaConfRepr(conf),
 		ReplyMarkup: u.mediaConfMarkup(conf),
+		ParseMode:   models.ParseModeMarkdown,
 	}); err != nil {
 		u.onError(err)
 	}

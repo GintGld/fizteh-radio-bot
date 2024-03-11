@@ -32,7 +32,7 @@ func Register(
 	session ctr.Session,
 	onError bot.ErrorsHandler,
 ) {
-	s := schedule{
+	s := &schedule{
 		router:  router,
 		auth:    auth,
 		session: session,

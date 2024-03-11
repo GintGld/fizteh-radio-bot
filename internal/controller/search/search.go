@@ -92,7 +92,7 @@ func Register(
 	onCancel ctr.OnCancelHandler,
 	onError bot.ErrorsHandler,
 ) {
-	s := Search{
+	s := &Search{
 		router:   router,
 		search:   search,
 		session:  session,

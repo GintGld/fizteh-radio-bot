@@ -35,7 +35,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 
 	msg := update.Message.Text
 
-	res, err := u.mediaUpload.LinkDownload(chatId, msg)
+	res, err := u.mediaUpload.LinkDownload(ctx, chatId, msg)
 	if err != nil {
 		// Handle more errors.
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{

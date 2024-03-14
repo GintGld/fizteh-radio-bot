@@ -28,8 +28,8 @@ type Start struct {
 }
 
 type Auth interface {
-	IsKnown(id int64) bool
-	Login(id int64, login, pass string) error
+	IsKnown(ctx context.Context, id int64) bool
+	Login(ctx context.Context, id int64, login, pass string) error
 }
 
 func Register(
@@ -61,7 +61,7 @@ func (s *Start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 	chatId := update.Message.Chat.ID
 
 	// Check if user is known or not
-	if s.auth.IsKnown(update.Message.From.ID) {
+	if s.auth.IsKnown(ctx, update.Message.From.ID) {
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   fmt.Sprintf(ctr.AuthorizedMessage, update.Message.From.FirstName),
@@ -124,7 +124,7 @@ func (s *Start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 
 	login := s.loginStorage.Get(chatId)
 
-	if err := s.auth.Login(chatId, login, pass); err != nil {
+	if err := s.auth.Login(ctx, chatId, login, pass); err != nil {
 		// TODO: error statuses
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,

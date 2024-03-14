@@ -39,7 +39,7 @@ type schedule struct {
 }
 
 type Auth interface {
-	IsKnown(id int64) bool
+	IsKnown(ctx context.Context, id int64) bool
 }
 
 type Schedule interface {
@@ -78,7 +78,7 @@ func Register(
 func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 	chatId := update.Message.Chat.ID
 
-	if !s.auth.IsKnown(chatId) {
+	if !s.auth.IsKnown(ctx, chatId) {
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.ErrUnknown,

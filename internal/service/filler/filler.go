@@ -19,15 +19,15 @@ func New() *Filler {
 	return &Filler{}
 }
 
-func (f *Filler) IsKnown(id int64) bool {
+func (f *Filler) IsKnown(_ context.Context, _ int64) bool {
 	return true
 }
 
-func (f *Filler) Login(id int64, login, pass string) error {
+func (f *Filler) Login(_ context.Context, _ int64, _, _ string) error {
 	return nil
 }
 
-func (f *Filler) Search(id int64, filter models.MediaFilter) ([]models.Media, error) {
+func (f *Filler) Search(_ context.Context, _ int64, filter models.MediaFilter) ([]models.Media, error) {
 	respSize := rand.Intn(filter.MaxRespLen)
 
 	res := make([]models.Media, respSize)
@@ -39,11 +39,11 @@ func (f *Filler) Search(id int64, filter models.MediaFilter) ([]models.Media, er
 	return res, nil
 }
 
-func (f *Filler) NewMedia(id int64, media models.MediaConfig, source string) error {
+func (f *Filler) NewMedia(_ context.Context, _ int64, _ models.MediaConfig, _ string) error {
 	return nil
 }
 
-func (f *Filler) LinkDownload(id int64, link string) (models.LinkDownloadResult, error) {
+func (f *Filler) LinkDownload(_ context.Context, _ int64, _ string) (models.LinkDownloadResult, error) {
 	const maxRespLen = 10
 
 	respSize := rand.Intn(maxRespLen)
@@ -66,7 +66,7 @@ func (f *Filler) LinkDownload(id int64, link string) (models.LinkDownloadResult,
 	}, nil
 }
 
-func (f *Filler) LinkUpload(id int64, res models.LinkDownloadResult) error {
+func (f *Filler) LinkUpload(_ context.Context, _ int64, _ models.LinkDownloadResult) error {
 	return nil
 }
 
@@ -84,7 +84,7 @@ func (f *Filler) Schedule(_ context.Context, _ int64) ([]models.Segment, error) 
 	return res, nil
 }
 
-func (f *Filler) NewSegment(_ int64, _ models.Segment) error {
+func (f *Filler) NewSegment(_ context.Context, _ int64, _ models.Segment) error {
 	return nil
 }
 

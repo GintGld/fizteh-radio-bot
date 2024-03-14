@@ -38,7 +38,7 @@ type picker struct {
 }
 
 type ScheduleAdd interface {
-	NewSegment(id int64, s localModels.Segment) error
+	NewSegment(ctx context.Context, id int64, s localModels.Segment) error
 }
 
 func Register(
@@ -131,7 +131,7 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 		StopCut:   media.Duration,
 		Protected: true,
 	}
-	if err := p.schedule.NewSegment(chatId, segm); err != nil {
+	if err := p.schedule.NewSegment(ctx, chatId, segm); err != nil {
 		p.onError(err)
 		// TODO: handle many errors
 	}

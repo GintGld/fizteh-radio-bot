@@ -51,13 +51,13 @@ type upload struct {
 }
 
 type Auth interface {
-	IsKnown(id int64) bool
+	IsKnown(ctx context.Context, id int64) bool
 }
 
 type MediaUpload interface {
-	NewMedia(id int64, media localModels.MediaConfig, source string) error
-	LinkDownload(id int64, link string) (localModels.LinkDownloadResult, error)
-	LinkUpload(id int64, res localModels.LinkDownloadResult) error
+	NewMedia(ctx context.Context, id int64, media localModels.MediaConfig, source string) error
+	LinkDownload(ctx context.Context, id int64, link string) (localModels.LinkDownloadResult, error)
+	LinkUpload(ctx context.Context, id int64, res localModels.LinkDownloadResult) error
 }
 
 func Register(
@@ -107,7 +107,7 @@ func Register(
 func (u *upload) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 	chatId := update.Message.Chat.ID
 
-	if !u.auth.IsKnown(chatId) {
+	if !u.auth.IsKnown(ctx, chatId) {
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.ErrUnknown,
@@ -137,9 +137,9 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 
 	switch u.router.GetState(update.CallbackQuery.Data) {
 	case "manual":
-		err = u.mediaUpload.NewMedia(chatId, u.mediaConfigStorage.Get(chatId), u.fileStorage.Get(chatId))
+		err = u.mediaUpload.NewMedia(ctx, chatId, u.mediaConfigStorage.Get(chatId), u.fileStorage.Get(chatId))
 	case "link":
-		err = u.mediaUpload.LinkUpload(chatId, u.linkDownloadResStorage.Get(chatId))
+		err = u.mediaUpload.LinkUpload(ctx, chatId, u.linkDownloadResStorage.Get(chatId))
 	}
 
 	if err != nil {

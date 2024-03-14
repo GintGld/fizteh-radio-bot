@@ -39,7 +39,7 @@ type autodj struct {
 }
 
 type Auth interface {
-	IsKnown(id int64) bool
+	IsKnown(ctx context.Context, id int64) bool
 }
 
 type AutoDJ interface {
@@ -92,7 +92,7 @@ func Register(
 func (a *autodj) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 	chatId := update.Message.Chat.ID
 
-	if !a.auth.IsKnown(chatId) {
+	if !a.auth.IsKnown(ctx, chatId) {
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.ErrUnknown,

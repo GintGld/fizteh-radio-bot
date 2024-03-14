@@ -10,7 +10,7 @@ import (
 )
 
 type Auth interface {
-	IsKnown(id int64) bool
+	IsKnown(ctx context.Context, id int64) bool
 }
 
 func Register(
@@ -23,7 +23,7 @@ func Register(
 
 		chatId := update.Message.Chat.ID
 
-		if !auth.IsKnown(chatId) {
+		if !auth.IsKnown(ctx, chatId) {
 			if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: chatId,
 				Text:   ctr.ErrUnknown,

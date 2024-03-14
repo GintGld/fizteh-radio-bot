@@ -50,11 +50,11 @@ type Search struct {
 }
 
 type Auth interface {
-	IsKnown(id int64) bool
+	IsKnown(ctx context.Context, id int64) bool
 }
 
 type LibrarySearch interface {
-	Search(id int64, filter localModels.MediaFilter) ([]localModels.Media, error)
+	Search(ctx context.Context, id int64, filter localModels.MediaFilter) ([]localModels.Media, error)
 }
 
 type searchOption struct {
@@ -142,7 +142,7 @@ func Register(
 func (s *Search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 	chatId := update.Message.Chat.ID
 
-	if !s.auth.IsKnown(chatId) {
+	if !s.auth.IsKnown(ctx, chatId) {
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.ErrUnknown,
@@ -184,7 +184,7 @@ func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 	tags = append(tags, opt.languages...)
 	tags = append(tags, opt.moods...)
 
-	res, err := s.search.Search(chatId, localModels.MediaFilter{
+	res, err := s.search.Search(ctx, chatId, localModels.MediaFilter{
 		Name:       opt.nameAuthor,
 		Author:     opt.nameAuthor,
 		Tags:       tags,

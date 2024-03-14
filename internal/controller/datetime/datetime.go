@@ -33,12 +33,12 @@ type picker struct {
 	onError      bot.ErrorsHandler
 	mediaStorage storage.Storage[localModels.Media]
 
-	dateStorage        storage.Storage[time.Time]
-	pickMessageStorage storage.Storage[int]
+	dateStorage  storage.Storage[time.Time]
+	msgIdStorage storage.Storage[int]
 }
 
 type ScheduleAdd interface {
-	NewSegment(s localModels.Segment) error
+	NewSegment(id int64, s localModels.Segment) error
 }
 
 func Register(
@@ -47,6 +47,7 @@ func Register(
 	session ctr.Session,
 	onCancel ctr.OnCancelHandler,
 	onError bot.ErrorsHandler,
+	msgIdStorage storage.Storage[int],
 	mediaStorage storage.Storage[localModels.Media],
 ) {
 	p := &picker{
@@ -56,9 +57,9 @@ func Register(
 		onCancel: onCancel,
 		onError:  onError,
 
-		dateStorage:        storage.Storage[time.Time]{},
-		pickMessageStorage: storage.Storage[int]{},
-		mediaStorage:       mediaStorage,
+		dateStorage:  storage.New[time.Time](),
+		msgIdStorage: msgIdStorage,
+		mediaStorage: mediaStorage,
 	}
 
 	router.RegisterCallback(cmdBase, p.init)
@@ -69,12 +70,12 @@ func Register(
 func (p *picker) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 	p.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.CallbackQuery.From.ID
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
-	msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatId,
-		Text:   ctr.LibSearchInit,
+	msg, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:    chatId,
+		MessageID: p.msgIdStorage.Get(chatId),
+		Text:      ctr.LibSearchInit,
 		ReplyMarkup: datepicker.New(
 			b, p.catchDatePicker,
 			datepicker.CurrentDate(time.Now()),
@@ -88,31 +89,32 @@ func (p *picker) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 		p.onError(err)
 		return
 	}
-	p.pickMessageStorage.Set(userId, msg.ID)
+	p.msgIdStorage.Set(chatId, msg.ID)
 }
 
 func (p *picker) catchDatePicker(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage, date time.Time) {
-	userId := mes.Message.From.ID
 	chatId := mes.Message.Chat.ID
 
-	p.dateStorage.Set(userId, date)
+	p.dateStorage.Set(chatId, date)
 
-	if _, err := b.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
+	msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		Text:        ctr.LibSearchPickSelecting,
 		ChatID:      chatId,
-		MessageID:   p.pickMessageStorage.Get(userId),
 		ReplyMarkup: p.timePickMarkup(),
-	}); err != nil {
+	})
+	if err != nil {
 		p.onError(err)
 	}
+
+	p.msgIdStorage.Set(chatId, msg.ID)
 }
 
 func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.Update) {
 	p.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.CallbackQuery.From.ID
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
-	y, m, d := p.dateStorage.Get(userId).Date()
+	y, m, d := p.dateStorage.Get(chatId).Date()
 	timeStr := p.router.GetState(update.CallbackQuery.Data)
 
 	H, M, _ := strings.Cut(timeStr, ":")
@@ -121,7 +123,7 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 
 	date := time.Date(y, m, d, hour, minute, 0, 0, time.Local)
 
-	media := p.mediaStorage.Get(userId)
+	media := p.mediaStorage.Get(chatId)
 	segm := localModels.Segment{
 		Media:     media,
 		Start:     date,
@@ -129,14 +131,15 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 		StopCut:   media.Duration,
 		Protected: true,
 	}
-	if err := p.schedule.NewSegment(segm); err != nil {
+	if err := p.schedule.NewSegment(chatId, segm); err != nil {
 		p.onError(err)
 		// TODO: handle many errors
 	}
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatId,
-		Text:   p.successMsg(date, date.Add(media.Duration)),
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:    chatId,
+		MessageID: p.msgIdStorage.Get(chatId),
+		Text:      p.successMsg(date, date.Add(media.Duration)),
 	}); err != nil {
 		p.onError(err)
 	}
@@ -145,12 +148,11 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 func (p *picker) cancelTimePicker(ctx context.Context, b *bot.Bot, update *models.Update) {
 	p.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.CallbackQuery.From.ID
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
 	if _, err := b.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
 		ChatID:    chatId,
-		MessageID: p.pickMessageStorage.Get(userId),
+		MessageID: p.msgIdStorage.Get(chatId),
 		ReplyMarkup: datepicker.New(
 			b, p.catchDatePicker,
 			datepicker.CurrentDate(time.Now()),

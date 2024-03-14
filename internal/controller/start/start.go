@@ -3,7 +3,6 @@ package start
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -21,7 +20,6 @@ const (
 
 type Start struct {
 	router  *ctr.Router
-	log     *slog.Logger
 	auth    Auth
 	session ctr.Session
 	onError bot.ErrorsHandler
@@ -31,24 +29,22 @@ type Start struct {
 
 type Auth interface {
 	IsKnown(id int64) bool
-	Login(login, pass string) error
+	Login(id int64, login, pass string) error
 }
 
 func Register(
 	router *ctr.Router,
-	log *slog.Logger,
 	auth Auth,
 	session ctr.Session,
 	onError bot.ErrorsHandler,
 ) {
 	app := &Start{
 		router:  router,
-		log:     log,
 		auth:    auth,
 		session: session,
 		onError: onError,
 
-		loginStorage: storage.Storage[string]{},
+		loginStorage: storage.New[string](),
 	}
 
 	router.RegisterCommand(app.init)
@@ -61,7 +57,7 @@ func Register(
 // May redirect to authorization
 // if user is unknown.
 func (s *Start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
-	userId := update.Message.From.ID
+
 	chatId := update.Message.Chat.ID
 
 	// Check if user is known or not
@@ -73,7 +69,7 @@ func (s *Start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			s.onError(err)
 		}
 	} else {
-		s.session.Redirect(userId, s.router.Path(cmdLogin))
+		s.session.Redirect(chatId, s.router.Path(cmdLogin))
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.HelloMessage,
@@ -85,7 +81,7 @@ func (s *Start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 
 // Get login, validate it, ask for a password.
 func (s *Start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
-	userId := update.Message.From.ID
+
 	chatId := update.Message.Chat.ID
 
 	login := update.Message.Text
@@ -99,8 +95,8 @@ func (s *Start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
 		return
 	}
 
-	s.loginStorage.Set(userId, login)
-	s.session.Redirect(userId, s.router.Path(cmdPass))
+	s.loginStorage.Set(chatId, login)
+	s.session.Redirect(chatId, s.router.Path(cmdPass))
 
 	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: chatId,
@@ -112,7 +108,7 @@ func (s *Start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
 
 // Get pass, validate it
 func (s *Start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
-	userId := update.Message.From.ID
+
 	chatId := update.Message.Chat.ID
 
 	pass := update.Message.Text
@@ -126,9 +122,9 @@ func (s *Start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 		return
 	}
 
-	login := s.loginStorage.Get(userId)
+	login := s.loginStorage.Get(chatId)
 
-	if err := s.auth.Login(login, pass); err != nil {
+	if err := s.auth.Login(chatId, login, pass); err != nil {
 		// TODO: error statuses
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
@@ -139,8 +135,8 @@ func (s *Start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 		return
 	}
 
-	s.loginStorage.Del(userId)
-	s.session.Redirect(userId, ctr.NullStatus)
+	s.loginStorage.Del(chatId)
+	s.session.Redirect(chatId, ctr.NullStatus)
 
 	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: chatId,

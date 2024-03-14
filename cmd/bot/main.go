@@ -32,6 +32,8 @@ func main() {
 		getTelegramToken(),
 		getYandexToken(),
 		cfg.WebhookAddr,
+		cfg.TmpDir,
+		cfg.UseFiller,
 	)
 
 	// Run bot
@@ -70,6 +72,8 @@ func setupLogger(env, logPath string) *slog.Logger {
 		log = slog.New(
 			slog.NewJSONHandler(logWriter, &slog.HandlerOptions{Level: slog.LevelInfo}),
 		)
+	default:
+		panic("unknown environment " + env)
 	}
 
 	return log
@@ -88,7 +92,7 @@ func setupPrettySlog() *slog.Logger {
 }
 
 func getTelegramToken() string {
-	token := os.Getenv("TELEGRAM_TOKEN")
+	token := os.Getenv("TG_TOKEN")
 
 	if token == "" {
 		panic("telegram token not specified")
@@ -98,7 +102,7 @@ func getTelegramToken() string {
 }
 
 func getYandexToken() string {
-	token := os.Getenv("YANDEX_TOKEN")
+	token := os.Getenv("YA_TOKEN")
 
 	if token == "" {
 		panic("telegram token not specified")

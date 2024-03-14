@@ -22,21 +22,21 @@ const (
 func (u *upload) manualUpload(ctx context.Context, b *bot.Bot, update *models.Update) {
 	u.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.CallbackQuery.From.ID
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
-	u.session.Redirect(userId, u.router.Path(cmdFile))
+	u.session.Redirect(chatId, u.router.Path(cmdFile))
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatId,
-		Text:   ctr.LibUploadAskFile,
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:    chatId,
+		MessageID: u.msgIdStorage.Get(chatId),
+		Text:      ctr.LibUploadAskFile,
 	}); err != nil {
 		u.onError(err)
 	}
 }
 
 func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *models.Update) {
-	userId := update.Message.From.ID
+
 	chatId := update.Message.Chat.ID
 
 	if update.Message.Audio == nil {
@@ -46,6 +46,14 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 		}); err != nil {
 			u.onError(err)
 		}
+		msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.LibUploadAskFile,
+		})
+		if err != nil {
+			u.onError(err)
+		}
+		u.msgIdStorage.Set(chatId, msg.ID)
 		return
 	}
 
@@ -56,6 +64,14 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 		}); err != nil {
 			u.onError(err)
 		}
+		msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.LibUploadAskFile,
+		})
+		if err != nil {
+			u.onError(err)
+		}
+		u.msgIdStorage.Set(chatId, msg.ID)
 		return
 	}
 
@@ -87,7 +103,7 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 		u.deleteFile(filepath)
 	})
 
-	u.fileStorage.Set(userId, filepath)
+	u.fileStorage.Set(chatId, filepath)
 
 	author, name, found := strings.Cut(update.Message.Audio.FileName, " - ")
 	if !found {
@@ -101,12 +117,20 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 		Duration: getMediaDuration(filepath),
 	}
 
-	u.mediaConfigStorage.Set(userId, conf)
+	u.mediaConfigStorage.Set(chatId, conf)
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	if _, err := b.DeleteMessage(ctx, &bot.DeleteMessageParams{
+		ChatID:    chatId,
+		MessageID: update.Message.ID,
+	}); err != nil {
+		u.onError(err)
+	}
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
+		MessageID:   u.msgIdStorage.Get(chatId),
 		Text:        u.mediaConfRepr(conf),
 		ReplyMarkup: u.mediaConfMarkup(conf),
+		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
 		u.onError(err)
 	}

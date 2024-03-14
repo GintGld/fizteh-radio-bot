@@ -4,6 +4,12 @@ type Storage[T any] struct {
 	vals map[int64]T
 }
 
+func New[T any]() Storage[T] {
+	return Storage[T]{
+		vals: make(map[int64]T),
+	}
+}
+
 func (s *Storage[T]) Get(id int64) T {
 	if t, ok := s.vals[id]; ok {
 		return t

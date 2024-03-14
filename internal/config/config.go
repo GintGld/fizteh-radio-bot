@@ -9,8 +9,10 @@ import (
 
 type Config struct {
 	Env         string `yaml:"env" env-required:"true"`
-	LogPath     string `yaml:"log_path" env-default:""`
-	WebhookAddr string `yaml:"webhook_address" env-default:"8443"`
+	LogPath     string `yaml:"log-path" env-default:""`
+	WebhookAddr string `yaml:"webhook-addr" env-default:"8443"`
+	TmpDir      string `yaml:"tmp-dir" env-default:"tmp"`
+	UseFiller   bool   `yaml:"use-filler" env-default:"true"`
 }
 
 func MustLoad() *Config {

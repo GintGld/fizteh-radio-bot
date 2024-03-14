@@ -32,7 +32,7 @@ func NewRouter(
 	return &Router{
 		bot:     bot,
 		session: session,
-		prefix:  delimiter,
+		prefix:  "",
 	}
 }
 
@@ -56,6 +56,7 @@ func (r *Router) With(cmd Command) *Router {
 	}
 
 	return &Router{
+		bot:     r.bot,
 		prefix:  r.prefix + delimiter + string(cmd),
 		session: r.session,
 	}
@@ -102,7 +103,7 @@ func (r *Router) RegisterCallbackPrefix(cmd Command, handler bot.HandlerFunc) {
 // Path returns absolute path
 // to register redirect
 func (r *Router) Path(cmd Command) string {
-	return r.prefix + string(cmd)
+	return r.prefix + delimiter + string(cmd)
 }
 
 // PathPrefixState returns absolute path
@@ -125,7 +126,10 @@ func (r *Router) matchFunc(cmd Command) bot.MatchFunc {
 
 // callback returns configured callback
 func (r *Router) callback(cmd Command) string {
-	return r.prefix + string(cmd)
+	if cmd == "" {
+		return r.prefix
+	}
+	return r.prefix + delimiter + string(cmd)
 }
 
 func (r *Router) callbackPrefix(cmd Command) string {

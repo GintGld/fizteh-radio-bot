@@ -11,7 +11,6 @@ import (
 
 type Auth interface {
 	IsKnown(id int64) bool
-	Login(login, pass string) error
 }
 
 func Register(
@@ -21,10 +20,10 @@ func Register(
 	onError bot.ErrorsHandler,
 ) {
 	router.RegisterCommand(func(ctx context.Context, b *bot.Bot, update *models.Update) {
-		userId := update.Message.From.ID
+
 		chatId := update.Message.Chat.ID
 
-		if !auth.IsKnown(userId) {
+		if !auth.IsKnown(chatId) {
 			if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID: chatId,
 				Text:   ctr.ErrUnknown,

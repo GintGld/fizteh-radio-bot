@@ -5,65 +5,65 @@ import (
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+
+	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
 )
 
-func (s *Search) nextMediaSlide(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *Search) updateSlide(ctx context.Context, b *bot.Bot, update *models.Update) {
 	s.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.CallbackQuery.From.ID
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
+	direction := s.router.GetState(update.CallbackQuery.Data)
 
-	id := s.mediaPage.Get(userId) + 1
-	s.mediaPage.Set(userId, id)
+	id := s.mediaPage.Get(chatId)
+	switch direction {
+	case "prev":
+		id--
+	case "next":
+		id++
+	default:
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrorMessage,
+		}); err != nil {
+			s.onError(err)
+		}
+	}
+	s.mediaPage.Set(chatId, id)
 
-	res := s.mediaResults.Get(userId)
-	s.mediaSelected.Set(userId, res[id-1])
+	res := s.mediaResults.Get(chatId)
+	s.mediaSelected.Set(chatId, res[id-1])
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	msgId := s.msgIdStorage.Get(chatId)
+
+	msg, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
+		MessageID:   msgId,
 		Text:        s.mediaRepr(res[id-1]),
-		ParseMode:   models.ParseModeMarkdown,
+		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: s.mediaSliderMarkup(id, len(res)),
-	}); err != nil {
+	})
+	if err != nil {
 		s.onError(err)
 	}
-}
 
-func (s *Search) prevMediaSlide(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.CallbackQuery.From.ID
-	chatId := update.CallbackQuery.Message.Message.Chat.ID
-
-	id := s.mediaPage.Get(userId) - 1
-	s.mediaPage.Set(userId, id)
-
-	res := s.mediaResults.Get(userId)
-	s.mediaSelected.Set(userId, res[id-1])
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatId,
-		Text:        s.mediaRepr(res[id-1]),
-		ParseMode:   models.ParseModeMarkdown,
-		ReplyMarkup: s.mediaSliderMarkup(id, len(res)),
-	}); err != nil {
-		s.onError(err)
-	}
+	s.msgIdStorage.Set(chatId, msg.ID)
 }
 
 func (s *Search) canceledDateTimeSelector(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage) {
-	userId := mes.Message.From.ID
 	chatId := mes.Message.Chat.ID
 
-	id := s.mediaPage.Get(userId)
-	res := s.mediaResults.Get(userId)
+	id := s.mediaPage.Get(chatId)
+	res := s.mediaResults.Get(chatId)
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      chatId,
 		Text:        s.mediaRepr(res[id-1]),
-		ParseMode:   models.ParseModeMarkdown,
+		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: s.mediaSliderMarkup(id, len(res)),
-	}); err != nil {
+	})
+	if err != nil {
 		s.onError(err)
 	}
+	s.msgIdStorage.Set(chatId, msg.ID)
 }

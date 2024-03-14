@@ -13,8 +13,9 @@ const (
 	butMsgAuthor   = "Автор"
 	butMsgGenre    = "Жанр"
 	butMsgFormat   = "Формат"
-	butMsgPlaylist = "Плейлист"
+	butMsgPlaylist = "Плейлисты"
 	butMsgPodcast  = "Подкаст"
+	butMsgPodcasts = "Подкасты"
 	butMsgLang     = "Язык"
 	butMsgMood     = "Настроение"
 	butMsgSong     = "Песня"
@@ -31,19 +32,18 @@ func (u *upload) mainMenuMarkup() models.InlineKeyboardMarkup {
 				{Text: butMsgManual, CallbackData: u.router.Path(cmdManual)},
 				{Text: butMsgLink, CallbackData: u.router.Path(cmdLink)},
 			},
-			{
-				{Text: butMsgCancel, CallbackData: u.router.Path(cmdBack)},
-			},
 		},
 	}
 }
 
 func (u *upload) mediaConfMarkup(conf localModels.MediaConfig) models.InlineKeyboardMarkup {
-	var form string
+	var target, form string
 	switch conf.Format {
 	case localModels.Podcast:
-		form = butMsgPodcast
+		target = butMsgPodcast
+		form = butMsgPodcasts
 	case localModels.Song:
+		target = butMsgSong
 		form = butMsgPlaylist
 	}
 
@@ -54,7 +54,7 @@ func (u *upload) mediaConfMarkup(conf localModels.MediaConfig) models.InlineKeyb
 				{Text: butMsgAuthor, CallbackData: u.router.PathPrefixState(cmdSettings, "author")},
 			},
 			{
-				{Text: butMsgFormat, CallbackData: u.router.PathPrefixState(cmdSettings, "format")},
+				{Text: target, CallbackData: u.router.PathPrefixState(cmdSettings, "format")},
 				{Text: form, CallbackData: u.router.PathPrefixState(cmdSettings, "podcast-playlist")},
 			},
 			{
@@ -76,20 +76,6 @@ func (u *upload) mediaConfMarkup(conf localModels.MediaConfig) models.InlineKeyb
 func (u *upload) getSettingDataMarkup() models.InlineKeyboardMarkup {
 	return models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
-			{
-				{Text: butMsgCancel, CallbackData: u.router.Path(cmdCancelSetting)},
-			},
-		},
-	}
-}
-
-func (u *upload) formatMarkup() models.InlineKeyboardMarkup {
-	return models.InlineKeyboardMarkup{
-		InlineKeyboard: [][]models.InlineKeyboardButton{
-			{
-				{Text: butMsgSong, CallbackData: u.router.PathPrefixState(cmdFormat, "song")},
-				{Text: butMsgPodcast, CallbackData: u.router.PathPrefixState(cmdFormat, "podcast")},
-			},
 			{
 				{Text: butMsgCancel, CallbackData: u.router.Path(cmdCancelSetting)},
 			},

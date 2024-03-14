@@ -1,6 +1,10 @@
 package autodj
 
-import "github.com/go-telegram/bot/models"
+import (
+	"github.com/go-telegram/bot/models"
+
+	localModels "github.com/GintGld/fizteh-radio-bot/internal/models"
+)
 
 const (
 	butMsgGenre    = "Жанры"
@@ -8,11 +12,19 @@ const (
 	butMsgLanguage = "Языки"
 	butMsgMood     = "Настроения"
 	butMsgReset    = "Сбросить"
-	butMsgSubmit   = "Обновить"
+	butMsgUpdate   = "Обновить"
 	butMsgCancel   = "Назад"
+	butMsgSend     = "Обновить настройки"
+	butMsgStart    = "Запустить"
+	butMsgStop     = "Остановить"
 )
 
-func (a *autodj) mainMenuMarkup() models.InlineKeyboardMarkup {
+func (a *autodj) mainMenuMarkup(conf localModels.AutoDJConfig) models.InlineKeyboardMarkup {
+	playing := butMsgStart
+	if conf.IsPlaying {
+		playing = butMsgStop
+	}
+
 	return models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{
@@ -24,12 +36,12 @@ func (a *autodj) mainMenuMarkup() models.InlineKeyboardMarkup {
 				{Text: butMsgMood, CallbackData: a.router.PathPrefixState(cmdUpdate, "mood")},
 			},
 			{
+				{Text: butMsgUpdate, CallbackData: a.router.Path(cmdGetCurrConf)},
 				{Text: butMsgReset, CallbackData: a.router.Path(cmdReset)},
-				{Text: "", CallbackData: a.router.Path(cmdNoOp)},
 			},
 			{
-				{Text: butMsgSubmit, CallbackData: a.router.Path(cmdSubmit)},
-				{Text: butMsgCancel, CallbackData: a.router.Path(cmdBack)},
+				{Text: butMsgSend, CallbackData: a.router.Path(cmdSend)},
+				{Text: playing, CallbackData: a.router.Path(cmdStartStop)},
 			},
 		},
 	}

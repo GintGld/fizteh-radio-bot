@@ -15,69 +15,94 @@ import (
 )
 
 const (
-	cmdBase ctr.Command = ""
-	cmdBack ctr.Command = "back"
-
-	cmdUpdate    ctr.Command = "update"
-	cmdGetUpdate ctr.Command = "get-update"
-	cmdReset     ctr.Command = "reset"
-	cmdSubmit    ctr.Command = "submit"
-	cmdCancel    ctr.Command = "cancel"
+	cmdUpdate      ctr.Command = "update"
+	cmdGetUpdate   ctr.Command = "get-update"
+	cmdReset       ctr.Command = "reset"
+	cmdGetCurrConf ctr.Command = "submit"
+	cmdCancel      ctr.Command = "cancel"
+	cmdSend        ctr.Command = "send"
+	cmdStartStop   ctr.Command = "start-stop"
 
 	cmdNoOp ctr.Command = "no-op"
 )
 
 type autodj struct {
-	router   *ctr.Router
-	dj       AutoDJ
-	session  ctr.Session
-	onCancel ctr.OnCancelHandler
-	onError  bot.ErrorsHandler
+	router  *ctr.Router
+	auth    Auth
+	dj      AutoDJ
+	session ctr.Session
+	onError bot.ErrorsHandler
 
 	confStorage         storage.Storage[localModels.AutoDJConfig]
 	targetUpdateStorage storage.Storage[string]
+	msgIdStorage        storage.Storage[int]
+}
+
+type Auth interface {
+	IsKnown(id int64) bool
 }
 
 type AutoDJ interface {
-	Config(ctx context.Context) (localModels.AutoDJConfig, error)
-	SetConfig(ctx context.Context, config localModels.AutoDJConfig) error
+	Config(ctx context.Context, id int64) (localModels.AutoDJConfig, error)
+	SetConfig(ctx context.Context, id int64, config localModels.AutoDJConfig) error
+	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
 }
 
 func Register(
 	router *ctr.Router,
+	auth Auth,
 	dj AutoDJ,
 	session ctr.Session,
-	onCancel ctr.OnCancelHandler,
 	onError bot.ErrorsHandler,
 ) {
 	a := &autodj{
-		router:   router,
-		dj:       dj,
-		session:  session,
-		onCancel: onCancel,
-		onError:  onError,
+		router:  router,
+		auth:    auth,
+		dj:      dj,
+		session: session,
+		onError: onError,
 
-		confStorage: storage.Storage[localModels.AutoDJConfig]{},
+		confStorage:         storage.New[localModels.AutoDJConfig](),
+		targetUpdateStorage: storage.New[string](),
+		msgIdStorage:        storage.New[int](),
 	}
 
-	router.RegisterCallback(cmdBase, a.init)
+	router.RegisterCommand(a.init)
 
 	// settings
 	router.RegisterCallbackPrefix(cmdUpdate, a.update)
 	router.RegisterHandler(cmdGetUpdate, a.getUpdate)
 	router.RegisterCallback(cmdReset, a.reset)
 
+	// update
+	router.RegisterCallback(cmdGetCurrConf, a.getCurrConf)
+	router.RegisterCallback(cmdSend, a.send)
+
+	// start, stop
+	router.RegisterCallback(cmdStartStop, a.startStop)
+
+	// send
+	router.RegisterCallback(cmdSend, nil)
+
 	// filler
 	router.RegisterCallback(cmdNoOp, a.nullHandler)
 }
 
 func (a *autodj) init(ctx context.Context, b *bot.Bot, update *models.Update) {
-	a.callbackAnswer(ctx, b, update.CallbackQuery)
+	chatId := update.Message.Chat.ID
 
-	userId := update.CallbackQuery.From.ID
-	chatId := update.CallbackQuery.Message.Message.Chat.ID
+	if !a.auth.IsKnown(chatId) {
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrUnknown,
+		}); err != nil {
+			a.onError(err)
+		}
+		return
+	}
 
-	res, err := a.dj.Config(ctx)
+	res, err := a.dj.Config(ctx, chatId)
 	if err != nil {
 		// handle errors
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
@@ -89,13 +114,73 @@ func (a *autodj) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 		return
 	}
 
-	a.confStorage.Set(userId, res)
+	a.confStorage.Set(chatId, res)
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      chatId,
 		Text:        a.configRepr(res),
-		ReplyMarkup: a.mainMenuMarkup(),
-		ParseMode:   models.ParseModeMarkdown,
+		ReplyMarkup: a.mainMenuMarkup(res),
+		ParseMode:   models.ParseModeHTML,
+	})
+	if err != nil {
+		a.onError(err)
+	}
+
+	a.msgIdStorage.Set(chatId, msg.ID)
+}
+
+func (a *autodj) getCurrConf(ctx context.Context, b *bot.Bot, update *models.Update) {
+	a.callbackAnswer(ctx, b, update.CallbackQuery)
+
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
+
+	res, err := a.dj.Config(ctx, chatId)
+	if err != nil {
+		// handle errors
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrorMessage,
+		}); err != nil {
+			a.onError(err)
+		}
+		return
+	}
+
+	a.confStorage.Set(chatId, res)
+
+	msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:      chatId,
+		Text:        a.configRepr(res),
+		ReplyMarkup: a.mainMenuMarkup(res),
+		ParseMode:   models.ParseModeHTML,
+	})
+	if err != nil {
+		a.onError(err)
+	}
+
+	a.msgIdStorage.Set(chatId, msg.ID)
+}
+
+func (a *autodj) send(ctx context.Context, b *bot.Bot, update *models.Update) {
+	a.callbackAnswer(ctx, b, update.CallbackQuery)
+
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
+
+	if err := a.dj.SetConfig(ctx, chatId, a.confStorage.Get(chatId)); err != nil {
+		// handle errors
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrorMessage,
+		}); err != nil {
+			a.onError(err)
+		}
+		return
+	}
+
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:    chatId,
+		MessageID: a.msgIdStorage.Get(chatId),
+		Text:      ctr.ErrorMessage,
 	}); err != nil {
 		a.onError(err)
 	}
@@ -104,14 +189,15 @@ func (a *autodj) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 func (a *autodj) update(ctx context.Context, b *bot.Bot, update *models.Update) {
 	a.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.CallbackQuery.From.ID
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
-	a.targetUpdateStorage.Set(userId, update.CallbackQuery.Data)
+	a.targetUpdateStorage.Set(chatId, update.CallbackQuery.Data)
 
 	var msg string
 
-	switch a.router.GetState(update.CallbackQuery.Data) {
+	target := a.router.GetState(update.CallbackQuery.Data)
+
+	switch target {
 	case "genre":
 		msg = ctr.SchAutoDJAskGenre
 	case "playlist":
@@ -122,24 +208,75 @@ func (a *autodj) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 		msg = ctr.SchAutoDJAskMood
 	}
 
-	a.session.Redirect(userId, a.router.Path(cmdGetUpdate))
+	a.targetUpdateStorage.Set(chatId, target)
+	a.session.Redirect(chatId, a.router.Path(cmdGetUpdate))
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatId,
-		Text:   msg,
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:    chatId,
+		MessageID: a.msgIdStorage.Get(chatId),
+		Text:      msg,
 	}); err != nil {
 		a.onError(err)
 	}
 }
 
+func (a *autodj) startStop(ctx context.Context, b *bot.Bot, update *models.Update) {
+	a.callbackAnswer(ctx, b, update.CallbackQuery)
+
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
+
+	conf := a.confStorage.Get(chatId)
+
+	var err error
+
+	switch conf.IsPlaying {
+	case true:
+		err = a.dj.Stop(ctx)
+	case false:
+		err = a.dj.Start(ctx)
+	}
+
+	if err != nil {
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrorMessage,
+		}); err != nil {
+			a.onError(err)
+		}
+		return
+	}
+
+	conf, err = a.dj.Config(ctx, chatId)
+	if err != nil {
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrorMessage,
+		}); err != nil {
+			a.onError(err)
+		}
+		return
+	}
+
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:      chatId,
+		MessageID:   a.msgIdStorage.Get(chatId),
+		Text:        a.configRepr(conf),
+		ReplyMarkup: a.mainMenuMarkup(conf),
+		ParseMode:   models.ParseModeHTML,
+	}); err != nil {
+		a.onError(err)
+	}
+
+}
+
 func (a *autodj) getUpdate(ctx context.Context, b *bot.Bot, update *models.Update) {
-	userId := update.Message.From.ID
+
 	chatId := update.Message.Chat.ID
 
 	msg := update.Message.Text
-	conf := a.confStorage.Get(userId)
+	conf := a.confStorage.Get(chatId)
 
-	switch a.targetUpdateStorage.Get(userId) {
+	switch a.targetUpdateStorage.Get(chatId) {
 	case "genre":
 		conf.Genres = split.SplitMsg(msg)
 	case "playlist":
@@ -150,16 +287,23 @@ func (a *autodj) getUpdate(ctx context.Context, b *bot.Bot, update *models.Updat
 		conf.Moods = split.SplitMsg(msg)
 	}
 
-	a.targetUpdateStorage.Del(userId)
-	a.confStorage.Set(userId, conf)
+	a.targetUpdateStorage.Del(chatId)
+	a.confStorage.Set(chatId, conf)
 
-	a.session.Redirect(userId, ctr.NullStatus)
+	a.session.Redirect(chatId, ctr.NullStatus)
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	if _, err := b.DeleteMessage(ctx, &bot.DeleteMessageParams{
+		ChatID:    chatId,
+		MessageID: update.Message.ID,
+	}); err != nil {
+		a.onError(err)
+	}
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
+		MessageID:   a.msgIdStorage.Get(chatId),
 		Text:        a.configRepr(conf),
-		ReplyMarkup: a.mainMenuMarkup(),
-		ParseMode:   models.ParseModeMarkdown,
+		ReplyMarkup: a.mainMenuMarkup(conf),
+		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
 		a.onError(err)
 	}
@@ -168,10 +312,9 @@ func (a *autodj) getUpdate(ctx context.Context, b *bot.Bot, update *models.Updat
 func (a *autodj) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
 	a.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.CallbackQuery.From.ID
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
-	currentConf, err := a.dj.Config(ctx)
+	currentConf, err := a.dj.Config(ctx, chatId)
 	if err != nil {
 		// handle errors
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
@@ -183,13 +326,14 @@ func (a *autodj) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
 		return
 	}
 
-	a.confStorage.Set(userId, currentConf)
+	a.confStorage.Set(chatId, currentConf)
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
+		MessageID:   a.msgIdStorage.Get(chatId),
 		Text:        a.configRepr(currentConf),
-		ReplyMarkup: a.mainMenuMarkup(),
-		ParseMode:   models.ParseModeMarkdown,
+		ReplyMarkup: a.mainMenuMarkup(currentConf),
+		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
 		a.onError(err)
 	}
@@ -215,16 +359,16 @@ func (a *autodj) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *
 func (a *autodj) configRepr(conf localModels.AutoDJConfig) string {
 	var b strings.Builder
 
-	b.WriteString("*Настройки автодиджея:*\n")
-	b.WriteString(fmt.Sprintf("*Жанры:* %s", strings.Join(conf.Genres, ", ")))
-	b.WriteString(fmt.Sprintf("*Плейлисты:* %s", strings.Join(conf.Playlists, ", ")))
-	b.WriteString(fmt.Sprintf("*Языки:* %s", strings.Join(conf.Languages, ", ")))
-	b.WriteString(fmt.Sprintf("*Настроения:* %s", strings.Join(conf.Moods, ", ")))
+	b.WriteString("<b>Настройки автодиджея:</b>\n")
+	b.WriteString(fmt.Sprintf("<b>Жанры:</b> %s\n", strings.Join(conf.Genres, ", ")))
+	b.WriteString(fmt.Sprintf("<b>Плейлисты:</b> %s\n", strings.Join(conf.Playlists, ", ")))
+	b.WriteString(fmt.Sprintf("<b>Языки:</b> %s\n", strings.Join(conf.Languages, ", ")))
+	b.WriteString(fmt.Sprintf("<b>Настроения:</b> %s\n", strings.Join(conf.Moods, ", ")))
 
 	if conf.IsPlaying {
-		b.WriteString("*Сейчас играет*")
+		b.WriteString("<b>Сейчас играет</b>")
 	} else {
-		b.WriteString("*Сейчас не играет*")
+		b.WriteString("<b>Сейчас не играет</b>")
 	}
 
 	return b.String()

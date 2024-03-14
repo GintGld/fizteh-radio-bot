@@ -27,7 +27,6 @@ const (
 	// settings
 	cmdSettings      ctr.Command = "settings"
 	cmdGetData       ctr.Command = "get-data"
-	cmdFormat        ctr.Command = "format"
 	cmdSubmit        ctr.Command = "submit"
 	cmdCancel        ctr.Command = "cancel"
 	cmdCancelSetting ctr.Command = "cancel-settings"
@@ -38,9 +37,9 @@ const (
 
 type upload struct {
 	router      *ctr.Router
+	auth        Auth
 	mediaUpload MediaUpload
 	session     ctr.Session
-	onCancel    ctr.OnCancelHandler
 	onError     bot.ErrorsHandler
 	tmpDir      string
 
@@ -48,38 +47,43 @@ type upload struct {
 	mediaConfigStorage     storage.Storage[localModels.MediaConfig]
 	settingTargetStorage   storage.Storage[string]
 	linkDownloadResStorage storage.Storage[localModels.LinkDownloadResult]
+	msgIdStorage           storage.Storage[int]
+}
+
+type Auth interface {
+	IsKnown(id int64) bool
 }
 
 type MediaUpload interface {
-	NewMedia(media localModels.MediaConfig, source string) error
-	LinkDownload(link string) (localModels.LinkDownloadResult, error)
-	LinkUpload(localModels.LinkDownloadResult) error
+	NewMedia(id int64, media localModels.MediaConfig, source string) error
+	LinkDownload(id int64, link string) (localModels.LinkDownloadResult, error)
+	LinkUpload(id int64, res localModels.LinkDownloadResult) error
 }
 
 func Register(
 	router *ctr.Router,
+	auth Auth,
 	mediaUpload MediaUpload,
 	session ctr.Session,
-	onCancel ctr.OnCancelHandler,
 	onError bot.ErrorsHandler,
 	tmpDir string,
 ) {
 	u := &upload{
 		router:      router,
+		auth:        auth,
 		mediaUpload: mediaUpload,
 		session:     session,
-		onCancel:    onCancel,
 		onError:     onError,
 		tmpDir:      tmpDir,
 
-		fileStorage:            storage.Storage[string]{},
-		mediaConfigStorage:     storage.Storage[localModels.MediaConfig]{},
-		settingTargetStorage:   storage.Storage[string]{},
-		linkDownloadResStorage: storage.Storage[localModels.LinkDownloadResult]{},
+		fileStorage:            storage.New[string](),
+		mediaConfigStorage:     storage.New[localModels.MediaConfig](),
+		settingTargetStorage:   storage.New[string](),
+		linkDownloadResStorage: storage.New[localModels.LinkDownloadResult](),
+		msgIdStorage:           storage.New[int](),
 	}
 
-	router.RegisterCallback(cmdBase, u.init)
-	router.RegisterCallback(cmdBack, u.back)
+	router.RegisterCommand(u.init)
 
 	// manual upload
 	router.RegisterCallback(cmdManual, u.manualUpload)
@@ -90,11 +94,10 @@ func Register(
 	router.RegisterHandler(cmdGetLink, u.getLink)
 
 	// settings
-	router.RegisterCallback(cmdSettings, u.updateSettings)
-	router.RegisterCallback(cmdFormat, u.updateFormat)
+	router.RegisterCallbackPrefix(cmdSettings, u.updateSettings)
 	router.RegisterHandler(cmdGetData, u.getSettingNewData)
 	router.RegisterCallback(cmdCancelSetting, u.cancelSubTask)
-	router.RegisterCallback(cmdSubmit, u.submit)
+	router.RegisterCallbackPrefix(cmdSubmit, u.submit)
 	router.RegisterCallback(cmdCancel, u.returnToMainMenu)
 
 	// filler
@@ -102,38 +105,41 @@ func Register(
 }
 
 func (u *upload) init(ctx context.Context, b *bot.Bot, update *models.Update) {
-	u.callbackAnswer(ctx, b, update.CallbackQuery)
+	chatId := update.Message.Chat.ID
 
-	chatId := update.CallbackQuery.Message.Message.Chat.ID
-
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	if !u.auth.IsKnown(chatId) {
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrUnknown,
+		}); err != nil {
+			u.onError(err)
+		}
+		return
+	}
+	msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      chatId,
 		Text:        ctr.LibUpload,
 		ReplyMarkup: u.mainMenuMarkup(),
-	}); err != nil {
+	})
+	if err != nil {
 		u.onError(err)
 	}
-}
 
-func (u *upload) back(ctx context.Context, b *bot.Bot, update *models.Update) {
-	u.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	u.onCancel(ctx, b, update.CallbackQuery.Message)
+	u.msgIdStorage.Set(chatId, msg.ID)
 }
 
 func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) {
 	u.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.CallbackQuery.From.ID
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
 	var err error
 
 	switch u.router.GetState(update.CallbackQuery.Data) {
 	case "manual":
-		err = u.mediaUpload.NewMedia(u.mediaConfigStorage.Get(userId), u.fileStorage.Get(userId))
+		err = u.mediaUpload.NewMedia(chatId, u.mediaConfigStorage.Get(chatId), u.fileStorage.Get(chatId))
 	case "link":
-		err = u.mediaUpload.LinkUpload(u.linkDownloadResStorage.Get(userId))
+		err = u.mediaUpload.LinkUpload(chatId, u.linkDownloadResStorage.Get(chatId))
 	}
 
 	if err != nil {
@@ -147,14 +153,15 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 		return
 	}
 
-	u.fileStorage.Del(userId)
-	u.linkDownloadResStorage.Del(userId)
-	u.mediaConfigStorage.Del(userId)
-	u.settingTargetStorage.Del(userId)
+	u.fileStorage.Del(chatId)
+	u.linkDownloadResStorage.Del(chatId)
+	u.mediaConfigStorage.Del(chatId)
+	u.settingTargetStorage.Del(chatId)
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: chatId,
-		Text:   ctr.LibUploadSuccess,
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:    chatId,
+		MessageID: u.msgIdStorage.Get(chatId),
+		Text:      ctr.LibUploadSuccess,
 	}); err != nil {
 		u.onError(err)
 	}
@@ -163,16 +170,16 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 func (u *upload) returnToMainMenu(ctx context.Context, b *bot.Bot, update *models.Update) {
 	u.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.CallbackQuery.From.ID
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
-	u.fileStorage.Del(userId)
-	u.linkDownloadResStorage.Del(userId)
-	u.mediaConfigStorage.Del(userId)
-	u.settingTargetStorage.Del(userId)
+	u.fileStorage.Del(chatId)
+	u.linkDownloadResStorage.Del(chatId)
+	u.mediaConfigStorage.Del(chatId)
+	u.settingTargetStorage.Del(chatId)
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
+		MessageID:   u.msgIdStorage.Get(chatId),
 		Text:        ctr.LibUpload,
 		ReplyMarkup: u.mainMenuMarkup(),
 	}); err != nil {

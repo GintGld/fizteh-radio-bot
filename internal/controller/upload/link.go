@@ -16,13 +16,13 @@ import (
 func (u *upload) linkUpload(ctx context.Context, b *bot.Bot, update *models.Update) {
 	u.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	userId := update.CallbackQuery.From.ID
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
-	u.session.Redirect(userId, u.router.Path(cmdGetLink))
+	u.session.Redirect(chatId, u.router.Path(cmdGetLink))
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
+		MessageID:   u.msgIdStorage.Get(chatId),
 		Text:        ctr.LibUploadAskLink,
 		ReplyMarkup: u.getSettingDataMarkup(),
 	}); err != nil {
@@ -31,14 +31,11 @@ func (u *upload) linkUpload(ctx context.Context, b *bot.Bot, update *models.Upda
 }
 
 func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update) {
-	u.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	userId := update.Message.From.ID
 	chatId := update.Message.Chat.ID
 
 	msg := update.Message.Text
 
-	res, err := u.mediaUpload.LinkDownload(msg)
+	res, err := u.mediaUpload.LinkDownload(chatId, msg)
 	if err != nil {
 		// Handle more errors.
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
@@ -50,7 +47,15 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 		return
 	}
 
-	u.linkDownloadResStorage.Set(userId, res)
+	u.session.Redirect(chatId, ctr.NullStatus)
+	u.linkDownloadResStorage.Set(chatId, res)
+
+	if _, err := b.DeleteMessage(ctx, &bot.DeleteMessageParams{
+		ChatID:    chatId,
+		MessageID: update.Message.ID,
+	}); err != nil {
+		u.onError(err)
+	}
 
 	switch res.Type {
 	case localModels.ResSong:
@@ -60,20 +65,24 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 			Duration: res.Media.Duration,
 		}
 
-		u.mediaConfigStorage.Set(userId, conf)
+		u.mediaConfigStorage.Set(chatId, conf)
 
-		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:      chatId,
+			MessageID:   u.msgIdStorage.Get(chatId),
 			Text:        u.mediaConfRepr(conf),
 			ReplyMarkup: u.mediaConfMarkup(conf),
+			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
 			u.onError(err)
 		}
 	case localModels.ResPlaylist:
-		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:      chatId,
+			MessageID:   u.msgIdStorage.Get(chatId),
 			Text:        u.playlistRepr(res),
 			ReplyMarkup: u.playlistMarkup(),
+			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
 			u.onError(err)
 		}
@@ -85,14 +94,14 @@ func (u *upload) playlistRepr(res localModels.LinkDownloadResult) string {
 
 	totalDur := time.Duration(0)
 
-	b.WriteString(fmt.Sprintf("*Плейлист:* %s", res.Playlist.Name))
+	b.WriteString(fmt.Sprintf("<b>Плейлист:</b> %s\n", res.Playlist.Name))
 
 	for _, m := range res.Playlist.Values {
 		totalDur += m.Duration
 	}
 
-	b.WriteString(fmt.Sprintf("*Количество песен:* %d", len(res.Playlist.Values)))
-	b.WriteString(fmt.Sprintf("*Общая длительность:* %s", totalDur.String()))
+	b.WriteString(fmt.Sprintf("<b>Количество песен:</b> %d\n", len(res.Playlist.Values)))
+	b.WriteString(fmt.Sprintf("<b>Общая длительность:</b> %s", totalDur.String()))
 
 	return b.String()
 }

@@ -7,52 +7,57 @@ import (
 )
 
 const (
-	butMsgNameOrAuthor  = "Название/автор"
-	butMsgFormat        = "Песни/подкасты"
-	butMsgFormatAll     = "Все"
-	butMsgFormatPodcast = "Подкасты"
-	butMsgFormatSong    = "Песни"
-	butMsgPlaylist      = "Плейлисты"
-	butMsgGenre         = "Жанры"
-	butMsgLanguage      = "Язык"
-	butMsgMood          = "Настроение"
+	butMsgNameOrAuthor = "Название/автор"
+	butMsgPodcast      = "Подкасты"
+	butMsgSong         = "Песни"
+	butMsgPlaylist     = "Плейлисты"
+	butMsgPodcasts     = "Подкасты"
+	butMsgGenre        = "Жанры"
+	butMsgLanguage     = "Язык"
+	butMsgMood         = "Настроение"
+
+	butMsgAddToSch = "Запланировать"
+	butMsgEdit     = "Редактировать"
+	butMsgPlayNext = "Играть следующим"
 
 	butMsgSubmit = "Искать"
 	butMsgCancel = "Назад"
 )
 
-// TODO: disable playlist or podcast buttons
-// via format state.
-func (s *Search) mainMenuMarkup() models.InlineKeyboardMarkup {
+func (s *Search) mainMenuMarkup(opt searchOption) models.InlineKeyboardMarkup {
+	msgFormat := butMsgSong
+	msgFormatSelect := butMsgPlaylist
+	if opt.format == formatPodcast {
+		msgFormat = butMsgPodcast
+		msgFormatSelect = butMsgPodcasts
+	}
+
 	return models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{
-				{Text: butMsgNameOrAuthor, CallbackData: s.router.Path(cmdNameAuthor)},
-				{Text: butMsgFormat, CallbackData: s.router.Path(cmdFormat)},
+				{Text: butMsgNameOrAuthor, CallbackData: s.router.PathPrefixState(cmdUpdate, "name-author")},
+				{Text: msgFormat, CallbackData: s.router.PathPrefixState(cmdUpdate, "format")},
 			},
 			{
-				{Text: butMsgPlaylist, CallbackData: s.router.Path(cmdPlaylist)},
-				{Text: butMsgGenre, CallbackData: s.router.Path(cmdGenre)},
+				{Text: msgFormatSelect, CallbackData: s.router.PathPrefixState(cmdUpdate, "podcast-playlist")},
+				{Text: butMsgGenre, CallbackData: s.router.PathPrefixState(cmdUpdate, "genre")},
 			},
 			{
-				{Text: butMsgLanguage, CallbackData: s.router.Path(cmdLanguage)},
-				{Text: butMsgMood, CallbackData: s.router.Path(cmdMood)},
+				{Text: butMsgLanguage, CallbackData: s.router.PathPrefixState(cmdUpdate, "lang")},
+				{Text: butMsgMood, CallbackData: s.router.PathPrefixState(cmdUpdate, "mood")},
 			},
 			{
 				{Text: butMsgSubmit, CallbackData: s.router.Path(cmdSubmit)},
-				{Text: butMsgCancel, CallbackData: s.router.Path(cmdBase)},
 			},
 		},
 	}
 }
 
-func (s *Search) formatSelectMarkup() models.InlineKeyboardMarkup {
+func (s *Search) getSettingDataMarkup() models.InlineKeyboardMarkup {
 	return models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{
-				{Text: butMsgFormatAll, CallbackData: s.router.Path(cmdFormatAll)},
-				{Text: butMsgFormatPodcast, CallbackData: s.router.Path(cmdFormatPodcast)},
-				{Text: butMsgFormatSong, CallbackData: s.router.Path(cmdFormatSong)},
+				{Text: butMsgCancel, CallbackData: s.router.Path(cmdCloseSlider)},
 			},
 		},
 	}
@@ -62,19 +67,19 @@ func (s *Search) mediaSliderMarkup(id int, maxId int) models.InlineKeyboardMarku
 	var (
 		butLeft = models.InlineKeyboardButton{
 			Text:         "\u00AB",
-			CallbackData: s.router.Path(cmdPrevSlide),
+			CallbackData: s.router.PathPrefixState(cmdUpdateSlide, "prev"),
 		}
 		butRight = models.InlineKeyboardButton{
 			Text:         "\u00BB",
-			CallbackData: s.router.Path(cmdNextSlide),
+			CallbackData: s.router.PathPrefixState(cmdUpdateSlide, "next"),
 		}
 	)
 	if id == 1 {
-		butLeft.Text = ""
+		butLeft.Text = "\t"
 		butLeft.CallbackData = s.router.Path(cmdNoOp)
 	}
 	if id == maxId {
-		butRight.Text = ""
+		butRight.Text = "\t"
 		butRight.CallbackData = s.router.Path(cmdNoOp)
 	}
 
@@ -86,11 +91,12 @@ func (s *Search) mediaSliderMarkup(id int, maxId int) models.InlineKeyboardMarku
 				butRight,
 			},
 			{
-				{Text: "В расписание", CallbackData: s.router.Path(cmdSelectMedia)},
-				{Text: "Редактировать", CallbackData: s.router.Path(cmdNoOp)}, // TODO
+				{Text: butMsgAddToSch, CallbackData: s.router.Path(cmdSelectMedia)},
+				{Text: butMsgPlayNext, CallbackData: s.router.Path(cmdNoOp)}, // TODO
 			},
 			{
-				{Text: "Назад", CallbackData: s.router.Path(cmdCloseSlider)},
+				{Text: butMsgEdit, CallbackData: s.router.Path(cmdNoOp)}, // TODO
+				{Text: butMsgCancel, CallbackData: s.router.Path(cmdCloseSlider)},
 			},
 		},
 	}

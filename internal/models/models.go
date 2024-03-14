@@ -1,4 +1,4 @@
-package localModels
+package models
 
 import "time"
 
@@ -78,6 +78,16 @@ type TagType struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
 }
+
+var (
+	TagTypesAvail = TagTypes{
+		TagType{ID: 1, Name: "format"},
+		TagType{ID: 2, Name: "genre"},
+		TagType{ID: 3, Name: "playlist"},
+		TagType{ID: 4, Name: "mood"},
+		TagType{ID: 5, Name: "language"},
+	}
+)
 
 type Segment struct {
 	ID        int64         `json:"id"`

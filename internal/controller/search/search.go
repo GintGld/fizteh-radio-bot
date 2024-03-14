@@ -19,23 +19,14 @@ const (
 	// basic
 	cmdBase   ctr.Command = ""
 	cmdSubmit ctr.Command = "text"
-	cmdCancel ctr.Command = "cancel"
 
 	// options
-	cmdNameAuthor    ctr.Command = "nameauthor"
-	cmdFormat        ctr.Command = "format"
-	cmdFormatAll     ctr.Command = "format-all"
-	cmdFormatPodcast ctr.Command = "format-podcast"
-	cmdFormatSong    ctr.Command = "format-song"
-	cmdPlaylist      ctr.Command = "playlist"
-	cmdGenre         ctr.Command = "genre"
-	cmdLanguage      ctr.Command = "language"
-	cmdMood          ctr.Command = "mood"
-	cmdUpdateOption  ctr.Command = "update"
+	cmdUpdate  ctr.Command = "update"
+	cmdGetData ctr.Command = "get-data"
+	cmdFormat  ctr.Command = "format"
 
 	// media slider
-	cmdNextSlide   ctr.Command = "next-slide"
-	cmdPrevSlide   ctr.Command = "prev-slide"
+	cmdUpdateSlide ctr.Command = "update-slide"
 	cmdCloseSlider ctr.Command = "cancel"
 	cmdSelectMedia ctr.Command = "select"
 
@@ -44,91 +35,94 @@ const (
 )
 
 type Search struct {
-	router   *ctr.Router
-	search   LibrarySearch
-	session  ctr.Session
-	onCancel ctr.OnCancelHandler
-	onError  bot.ErrorsHandler
+	router  *ctr.Router
+	auth    Auth
+	search  LibrarySearch
+	session ctr.Session
+	onError bot.ErrorsHandler
 
 	searchStorage       storage.Storage[searchOption]
-	targetUpdateStorage storage.Storage[ctr.Command]
+	targetUpdateStorage storage.Storage[string]
 	mediaPage           storage.Storage[int]
 	mediaResults        storage.Storage[[]localModels.Media]
 	mediaSelected       storage.Storage[localModels.Media]
+	msgIdStorage        storage.Storage[int]
+}
+
+type Auth interface {
+	IsKnown(id int64) bool
 }
 
 type LibrarySearch interface {
-	Search(localModels.MediaFilter) ([]localModels.Media, error)
-}
-
-type ScheduleAdd interface {
-	NewSegment(s localModels.Segment) error
+	Search(id int64, filter localModels.MediaFilter) ([]localModels.Media, error)
 }
 
 type searchOption struct {
 	nameAuthor string
 	format     searchFormat
 	playlists  []string
+	podcasts   []string
 	genres     []string
 	languages  []string
 	moods      []string
 }
 
-type searchFormat string
+type searchFormat int
 
 const (
-	formatAll     searchFormat = "все"
-	formatSong    searchFormat = "песни"
-	formatPodcast searchFormat = "подкасты"
+	formatSong searchFormat = iota
+	formatPodcast
 )
 
-var defaultOption = searchOption{format: formatAll}
+func (sOpt searchFormat) String() string {
+	switch sOpt {
+	case formatSong:
+		return "песня"
+	case formatPodcast:
+		return "подкаст"
+	default:
+		return ""
+	}
+}
 
 func Register(
 	router *ctr.Router,
+	auth Auth,
 	search LibrarySearch,
-	scheduleAdd ScheduleAdd,
+	scheduleAdd datetime.ScheduleAdd,
 	session ctr.Session,
-	onCancel ctr.OnCancelHandler,
 	onError bot.ErrorsHandler,
 ) {
 	s := &Search{
-		router:   router,
-		search:   search,
-		session:  session,
-		onCancel: onCancel,
-		onError:  onError,
+		router:  router,
+		auth:    auth,
+		search:  search,
+		session: session,
+		onError: onError,
 
-		searchStorage:       storage.Storage[searchOption]{},
-		targetUpdateStorage: storage.Storage[ctr.Command]{},
-		mediaPage:           storage.Storage[int]{},
-		mediaResults:        storage.Storage[[]localModels.Media]{},
+		searchStorage:       storage.New[searchOption](),
+		targetUpdateStorage: storage.New[string](),
+		mediaPage:           storage.New[int](),
+		mediaResults:        storage.New[[]localModels.Media](),
+		mediaSelected:       storage.New[localModels.Media](),
+		msgIdStorage:        storage.New[int](),
 	}
 
 	// main menu
-	router.RegisterCallback(cmdBase, s.init)
+	// router.RegisterCallback(cmdBase, s.init)
+	router.RegisterCommand(s.init)
 
 	// call searcher and show result
-	router.RegisterHandler(cmdSubmit, s.submit)
+	router.RegisterCallback(cmdSubmit, s.submit)
 
 	// option updates
-	router.RegisterCallback(cmdNameAuthor, s.nameAuthor)
-	router.RegisterCallback(cmdFormat, s.format)
-	router.RegisterCallback(cmdFormatAll, s.formatAll)
-	router.RegisterCallback(cmdFormatPodcast, s.formatPodcast)
-	router.RegisterCallback(cmdFormatSong, s.formatSong)
-	router.RegisterCallback(cmdPlaylist, s.playlist)
-	router.RegisterCallback(cmdGenre, s.genre)
-	router.RegisterCallback(cmdLanguage, s.language)
-	router.RegisterCallback(cmdMood, s.mood)
-
-	// options update answer
-	router.RegisterHandler(cmdUpdateOption, s.updateState)
+	router.RegisterCallbackPrefix(cmdUpdate, s.update)
+	router.RegisterHandler(cmdGetData, s.getData)
 
 	// media slider
-	router.RegisterCallback(cmdNextSlide, s.nextMediaSlide)
-	router.RegisterCallback(cmdPrevSlide, s.prevMediaSlide)
-	router.RegisterCallback(cmdCloseSlider, s.updateState)
+	router.RegisterCallbackPrefix(cmdUpdateSlide, s.updateSlide)
+	router.RegisterCallback(cmdCloseSlider, s.cancelSlider)
+	// FIXME implemect cancel buttons
 
 	// selector for schedule modify
 	datetime.Register(
@@ -137,51 +131,60 @@ func Register(
 		session,
 		s.canceledDateTimeSelector,
 		onError,
+		s.msgIdStorage,
 		s.mediaSelected,
 	)
-
-	router.RegisterCallback(cmdCancel, s.cancelSearch)
 
 	// null handler to answer callbacks for empty buttons
 	router.RegisterCallback(cmdNoOp, s.nullHandler)
 }
 
 func (s *Search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
+	chatId := update.Message.Chat.ID
 
-	userId := update.CallbackQuery.From.ID
-	chatId := update.CallbackQuery.Message.Message.Chat.ID
+	if !s.auth.IsKnown(chatId) {
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrUnknown,
+		}); err != nil {
+			s.onError(err)
+		}
+		return
+	}
 
-	s.searchStorage.Set(userId, defaultOption)
+	opt := s.searchStorage.Get(chatId)
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      chatId,
-		Text:        ctr.LibSearchInit,
-		ReplyMarkup: s.mainMenuMarkup(),
-	}); err != nil {
+		Text:        s.filterRepr(opt),
+		ReplyMarkup: s.mainMenuMarkup(opt),
+		ParseMode:   models.ParseModeHTML,
+	})
+	if err != nil {
 		s.onError(err)
 	}
+
+	s.msgIdStorage.Set(chatId, msg.ID)
 }
 
 // submit gets text to search,
 // search option and returns
 // slider for found media.
 func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) {
-	userId := update.Message.From.ID
-	chatId := update.Message.Chat.ID
+	s.callbackAnswer(ctx, b, update.CallbackQuery)
 
-	opt := s.searchStorage.Get(userId)
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
+
+	opt := s.searchStorage.Get(chatId)
 
 	tags := make([]string, 0)
-	if opt.format != formatAll {
-		tags = append(tags, string(opt.format))
-	}
+	tags = append(tags, opt.format.String())
 	tags = append(tags, opt.playlists...)
 	tags = append(tags, opt.genres...)
 	tags = append(tags, opt.languages...)
 	tags = append(tags, opt.moods...)
 
-	res, err := s.search.Search(localModels.MediaFilter{
+	res, err := s.search.Search(chatId, localModels.MediaFilter{
 		Name:       opt.nameAuthor,
 		Author:     opt.nameAuthor,
 		Tags:       tags,
@@ -192,24 +195,35 @@ func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 		s.onError(err)
 	}
 
-	s.mediaPage.Set(userId, 1)
-	s.mediaResults.Set(userId, res)
-	s.mediaSelected.Set(userId, res[0])
+	if len(res) == 0 {
+		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+			ChatID:      chatId,
+			MessageID:   s.msgIdStorage.Get(chatId),
+			Text:        ctr.LibSearchErrEmptyRes,
+			ReplyMarkup: s.getSettingDataMarkup(),
+		}); err != nil {
+			s.onError(err)
+		}
+		return
+	}
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	s.mediaPage.Set(chatId, 1)
+	s.mediaResults.Set(chatId, res)
+	s.mediaSelected.Set(chatId, res[0])
+
+	msg, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
+		MessageID:   s.msgIdStorage.Get(chatId),
 		Text:        s.mediaRepr(res[0]),
-		ParseMode:   models.ParseModeMarkdown,
+		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: s.mediaSliderMarkup(1, len(res)),
-	}); err != nil {
+	})
+
+	if err != nil {
 		s.onError(err)
 	}
-}
 
-func (s *Search) cancelSearch(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-
-	s.onCancel(ctx, b, update.CallbackQuery.Message)
+	s.msgIdStorage.Set(chatId, msg.ID)
 }
 
 // TODO: update
@@ -219,39 +233,28 @@ func (s *Search) nullHandler(ctx context.Context, b *bot.Bot, update *models.Upd
 }
 
 // filterRepr returns formated filter info.
-func (s *Search) filterRepr(id int64) string {
+func (s *Search) filterRepr(opt searchOption) string {
 	var b strings.Builder
-	opt := s.searchStorage.Get(id)
-	counter := 0
 
-	b.WriteString("*Настройки поиска:*\n")
+	b.WriteString("<b>Настройки поиска:</b>\n")
 	if opt.nameAuthor != "" {
-		b.WriteString(fmt.Sprintf("*Название/автор:* '%s'\n", opt.nameAuthor))
-		counter++
+		b.WriteString(fmt.Sprintf("<b>Название/автор:</b> %s\n", opt.nameAuthor))
 	}
-	if opt.format != formatAll {
-		b.WriteString(fmt.Sprintf("*Формат:* %s\n", opt.format))
-		counter++
-	}
+	b.WriteString(fmt.Sprintf("<b>Формат:</b> %s\n", opt.format.String()))
 	if len(opt.playlists) > 0 {
-		b.WriteString(fmt.Sprintf("*Плейлисты:* %s\n", strings.Join(opt.playlists, ", ")))
-		counter++
+		b.WriteString(fmt.Sprintf("<b>Плейлисты:</b> %s\n", strings.Join(opt.playlists, ", ")))
+	}
+	if len(opt.podcasts) > 0 {
+		b.WriteString(fmt.Sprintf("<b>Подкасты:</b> %s\n", strings.Join(opt.podcasts, ", ")))
 	}
 	if len(opt.genres) > 0 {
-		b.WriteString(fmt.Sprintf("*Жанры:* %s\n", strings.Join(opt.genres, ", ")))
-		counter++
+		b.WriteString(fmt.Sprintf("<b>Жанры:</b> %s\n", strings.Join(opt.genres, ", ")))
 	}
 	if len(opt.languages) > 0 {
-		b.WriteString(fmt.Sprintf("*Языки:* %s\n", strings.Join(opt.languages, ", ")))
-		counter++
+		b.WriteString(fmt.Sprintf("<b>Языки:</b> %s\n", strings.Join(opt.languages, ", ")))
 	}
 	if len(opt.moods) > 0 {
-		b.WriteString(fmt.Sprintf("*Настроения:* %s", strings.Join(opt.moods, ", ")))
-		counter++
-	}
-
-	if counter == 0 {
-		b.WriteString("Пока пустенько...")
+		b.WriteString(fmt.Sprintf("<b>Настроения:</b> %s", strings.Join(opt.moods, ", ")))
 	}
 
 	return b.String()
@@ -262,10 +265,10 @@ func (s *Search) filterRepr(id int64) string {
 func (s *Search) mediaRepr(media localModels.Media) string {
 	var b strings.Builder
 
-	b.WriteString("*Композиция*")
-	b.WriteString(fmt.Sprintf("*Название:* %s\n", media.Name))
-	b.WriteString(fmt.Sprintf("*Автор:* %s\n", media.Author))
-	b.WriteString(fmt.Sprintf("*Длительность:* %s\n", media.Duration.Round(time.Second).String()))
+	b.WriteString("<b>Композиция</b>\n")
+	b.WriteString(fmt.Sprintf("<b>Название:</b> %s\n", media.Name))
+	b.WriteString(fmt.Sprintf("<b>Автор:</b> %s\n", media.Author))
+	b.WriteString(fmt.Sprintf("<b>Длительность:</b> %s\n", media.Duration.Round(time.Second).String()))
 
 	var podcasts, playlists, genres, languages, moods []string
 	for _, tag := range media.Tags {
@@ -283,19 +286,19 @@ func (s *Search) mediaRepr(media localModels.Media) string {
 		}
 	}
 	if len(podcasts) > 0 {
-		b.WriteString(fmt.Sprintf("*Подкасты*: %s\n", strings.Join(podcasts, ", ")))
+		b.WriteString(fmt.Sprintf("<b>Подкасты:</b> %s\n", strings.Join(podcasts, ", ")))
 	}
 	if len(playlists) > 0 {
-		b.WriteString(fmt.Sprintf("*Плейлисты*: %s\n", strings.Join(playlists, ", ")))
+		b.WriteString(fmt.Sprintf("<b>Плейлисты:</b> %s\n", strings.Join(playlists, ", ")))
 	}
 	if len(genres) > 0 {
-		b.WriteString(fmt.Sprintf("*Жанры*: %s\n", strings.Join(genres, ", ")))
+		b.WriteString(fmt.Sprintf("<b>Жанры:</b> %s\n", strings.Join(genres, ", ")))
 	}
 	if len(languages) > 0 {
-		b.WriteString(fmt.Sprintf("*Языки*: %s\n", strings.Join(languages, ", ")))
+		b.WriteString(fmt.Sprintf("<b>Языки:</b> %s\n", strings.Join(languages, ", ")))
 	}
 	if len(moods) > 0 {
-		b.WriteString(fmt.Sprintf("*Настроение*: %s\n", strings.Join(moods, ", ")))
+		b.WriteString(fmt.Sprintf("<b>Настроение:</b> %s\n", strings.Join(moods, ", ")))
 	}
 
 	return b.String()

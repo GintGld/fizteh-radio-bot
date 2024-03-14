@@ -2,13 +2,24 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
 
-	_ "github.com/GintGld/fizteh-radio-bot/internal/controller/help"
-	_ "github.com/GintGld/fizteh-radio-bot/internal/controller/start"
+	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/autodj"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/datetime"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/help"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/schedule"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/search"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/start"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/upload"
+
+	"github.com/GintGld/fizteh-radio-bot/internal/service/filler"
+	"github.com/GintGld/fizteh-radio-bot/internal/service/session"
 )
 
 type App struct {
@@ -26,36 +37,92 @@ func New(
 	tgToken string,
 	yaToken string,
 	webhookAddr string,
+	tmpDir string,
+	useFiller bool,
 ) *App {
-	bot, err := bot.New(tgToken)
+	bot, err := bot.New(tgToken,
+		bot.WithDefaultHandler(defaultHandler),
+	)
 	if err != nil {
-		panic("failed to create bot")
+		panic("failed to create bot: " + err.Error())
 	}
 
-	// TODO: default handler
+	var (
+		authSrv        start.Auth
+		libSearchSrv   search.LibrarySearch
+		scheduleAddSrv datetime.ScheduleAdd
+		mediaUploadSrv upload.MediaUpload
+		getScheduleSrv schedule.Schedule
+		djSrv          autodj.AutoDJ
+	)
 
-	// TODO: implement Auth interface
-	// and define onError function,
-	// using logger.
+	if useFiller {
+		filler := filler.New()
 
-	// router := ctr.NewRouter(
-	// 	bot, session.New(),
-	// )
+		authSrv = filler
+		libSearchSrv = filler
+		scheduleAddSrv = filler
+		mediaUploadSrv = filler
+		getScheduleSrv = filler
+		djSrv = filler
+	} else {
+		// TODO
+		panic("real services not implemented")
+	}
 
-	// start.Register(
-	// 	router.With("start"),
-	// 	log,
-	// 	auth,
-	// 	session,
-	// 	onError,
-	// )
+	session := session.New[string]()
 
-	// help.Register(
-	// 	router.With("help"),
-	// 	auth,
-	// 	session,
-	// 	onError,
-	// )
+	router := ctr.NewRouter(
+		bot, session,
+	)
+
+	start.Register(
+		router.With("start"),
+		authSrv,
+		session,
+		errorHandler,
+	)
+
+	help.Register(
+		router.With("help"),
+		authSrv,
+		session,
+		errorHandler,
+	)
+
+	search.Register(
+		router.With("lib"),
+		authSrv,
+		libSearchSrv,
+		scheduleAddSrv,
+		session,
+		errorHandler,
+	)
+
+	upload.Register(
+		router.With("upload"),
+		authSrv,
+		mediaUploadSrv,
+		session,
+		errorHandler,
+		tmpDir,
+	)
+
+	schedule.Register(
+		router.With("sch"),
+		authSrv,
+		getScheduleSrv,
+		session,
+		errorHandler,
+	)
+
+	autodj.Register(
+		router.With("dj"),
+		authSrv,
+		djSrv,
+		session,
+		errorHandler,
+	)
 
 	return &App{
 		log: log,
@@ -68,18 +135,57 @@ func New(
 	}
 }
 
+func defaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+	if update.Message != nil {
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: update.Message.From.ID,
+			Text:   ctr.UndefMsg,
+		}); err != nil {
+			errorHandler(err)
+		}
+	}
+
+	if update.CallbackQuery != nil {
+		ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+			CallbackQueryID: update.CallbackQuery.ID,
+		})
+		if err != nil {
+			errorHandler(err)
+			return
+		}
+		if !ok {
+			errorHandler(fmt.Errorf("callback answer failed"))
+		}
+
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: update.CallbackQuery.From.ID,
+			Text:   ctr.UndefMsg,
+		}); err != nil {
+			errorHandler(err)
+		}
+	}
+}
+
+func errorHandler(err error) {
+	fmt.Println(err.Error())
+}
+
 // Run starts bot with webhook.
 func (a *App) Run(ctx context.Context) error {
+	// FIXME webhook
+	// TODO add to config wekhook and update options
 	ctx, a.cancel = context.WithCancel(ctx)
+	// go a.bot.StartWebhook(ctx)
+	// return a.server.ListenAndServe()
 
-	go a.bot.StartWebhook(ctx)
+	go a.bot.Start(ctx)
 
-	return a.server.ListenAndServe()
+	return nil
 }
 
 // Stop stops bot and its wekhook server.
 func (a *App) Stop() error {
 	a.cancel()
-
-	return a.server.Close()
+	return nil
+	// return a.server.Close()
 }

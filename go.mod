@@ -3,6 +3,7 @@ module github.com/GintGld/fizteh-radio-bot
 go 1.21.6
 
 require (
+	github.com/brianvoe/gofakeit/v6 v6.28.0
 	github.com/fatih/color v1.16.0
 	github.com/go-telegram/bot v1.1.6
 	github.com/go-telegram/ui v0.3.1

@@ -1,7 +1,5 @@
 package session
 
-import "sync"
-
 // MapCache is a simple
 // implementation for
 // controller.Session
@@ -9,19 +7,11 @@ import "sync"
 type MapCache[T comparable] struct {
 	// Users routing
 	paths map[int64]T
-
-	// Session cache
-	users map[int64]map[T]T
-
-	// Mutex per user
-	mutexes map[int64]sync.Mutex
 }
 
 func New[T comparable]() *MapCache[T] {
 	return &MapCache[T]{
-		paths:   make(map[int64]T),
-		users:   make(map[int64]map[T]T),
-		mutexes: make(map[int64]sync.Mutex),
+		paths: make(map[int64]T),
 	}
 }
 

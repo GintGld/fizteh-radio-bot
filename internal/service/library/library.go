@@ -5,17 +5,29 @@ import (
 	"log/slog"
 
 	"github.com/GintGld/fizteh-radio-bot/internal/models"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type library struct {
-	log *slog.Logger
+	log       *slog.Logger
+	libClient LibraryClient
 }
+
+type LibraryClient interface {
+	Search(ctx context.Context, token jwt.Token, filter models.MediaFilter) ([]models.Media, error)
+	NewMedia(ctx context.Context, token jwt.Token, media models.MediaConfig, source string) error
+}
+
+// TODO yandex client
 
 func New(
 	log *slog.Logger,
+	libClient LibraryClient,
 ) *library {
 	return &library{
-		log: log,
+		log:       log,
+		libClient: libClient,
 	}
 }
 

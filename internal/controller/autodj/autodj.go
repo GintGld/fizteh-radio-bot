@@ -45,8 +45,8 @@ type Auth interface {
 type AutoDJ interface {
 	Config(ctx context.Context, id int64) (localModels.AutoDJConfig, error)
 	SetConfig(ctx context.Context, id int64, config localModels.AutoDJConfig) error
-	Start(ctx context.Context) error
-	Stop(ctx context.Context) error
+	StartAutoDJ(ctx context.Context) error
+	StopAutoDJ(ctx context.Context) error
 }
 
 func Register(
@@ -231,9 +231,9 @@ func (a *autodj) startStop(ctx context.Context, b *bot.Bot, update *models.Updat
 
 	switch conf.IsPlaying {
 	case true:
-		err = a.dj.Stop(ctx)
+		err = a.dj.StopAutoDJ(ctx)
 	case false:
-		err = a.dj.Start(ctx)
+		err = a.dj.StartAutoDJ(ctx)
 	}
 
 	if err != nil {

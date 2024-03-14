@@ -104,10 +104,10 @@ func (f *Filler) SetConfig(_ context.Context, _ int64, conf models.AutoDJConfig)
 	return nil
 }
 
-func (f *Filler) Start(_ context.Context) error {
+func (f *Filler) StartAutoDJ(_ context.Context) error {
 	return nil
 }
 
-func (f *Filler) Stop(_ context.Context) error {
+func (f *Filler) StopAutoDJ(_ context.Context) error {
 	return nil
 }

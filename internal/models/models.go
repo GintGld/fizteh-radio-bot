@@ -1,11 +1,21 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+)
 
 // type Editor struct {
 // 	Login string `json:"login"`
 // 	Pass  string `json:"pass"`
 // }
+
+type User struct {
+	Login string
+	Pass  string
+	Token jwt.Token
+}
 
 type Media struct {
 	ID       int64         `json:"id"`

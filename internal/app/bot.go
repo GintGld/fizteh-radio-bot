@@ -69,9 +69,19 @@ func New(
 		getScheduleSrv = filler
 		dj = filler
 	} else {
-		a := authSrv.New(log)
-		l := libSrv.New(log)
-		s := schSrv.New(log)
+		a := authSrv.New(
+			log,
+			nil, // TODO
+		)
+		l := libSrv.New(
+			log,
+			nil, // TODO
+		)
+		s := schSrv.New(
+			log,
+			nil, // TODO
+			nil, // TODO
+		)
 
 		auth = a
 		libSearchSrv = l
@@ -79,6 +89,8 @@ func New(
 		mediaUploadSrv = l
 		getScheduleSrv = s
 		dj = s
+
+		panic("not implemented") // FIXME add client to services
 	}
 
 	session := session.New[string]()
@@ -177,6 +189,8 @@ func defaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	}
 }
 
+// TODO add another slog.Logger
+// dump it to special file.
 func errorHandler(err error) {
 	fmt.Println(err.Error())
 }

@@ -18,7 +18,10 @@ import (
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/start"
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/upload"
 
+	authSrv "github.com/GintGld/fizteh-radio-bot/internal/service/auth"
 	"github.com/GintGld/fizteh-radio-bot/internal/service/filler"
+	libSrv "github.com/GintGld/fizteh-radio-bot/internal/service/library"
+	schSrv "github.com/GintGld/fizteh-radio-bot/internal/service/schedule"
 	"github.com/GintGld/fizteh-radio-bot/internal/service/session"
 )
 
@@ -48,26 +51,34 @@ func New(
 	}
 
 	var (
-		authSrv        start.Auth
+		auth           start.Auth
 		libSearchSrv   search.LibrarySearch
 		scheduleAddSrv datetime.ScheduleAdd
 		mediaUploadSrv upload.MediaUpload
 		getScheduleSrv schedule.Schedule
-		djSrv          autodj.AutoDJ
+		dj             autodj.AutoDJ
 	)
 
 	if useFiller {
 		filler := filler.New()
 
-		authSrv = filler
+		auth = filler
 		libSearchSrv = filler
 		scheduleAddSrv = filler
 		mediaUploadSrv = filler
 		getScheduleSrv = filler
-		djSrv = filler
+		dj = filler
 	} else {
-		// TODO
-		panic("real services not implemented")
+		a := authSrv.New(log)
+		l := libSrv.New(log)
+		s := schSrv.New(log)
+
+		auth = a
+		libSearchSrv = l
+		scheduleAddSrv = s
+		mediaUploadSrv = l
+		getScheduleSrv = s
+		dj = s
 	}
 
 	session := session.New[string]()
@@ -78,21 +89,21 @@ func New(
 
 	start.Register(
 		router.With("start"),
-		authSrv,
+		auth,
 		session,
 		errorHandler,
 	)
 
 	help.Register(
 		router.With("help"),
-		authSrv,
+		auth,
 		session,
 		errorHandler,
 	)
 
 	search.Register(
 		router.With("lib"),
-		authSrv,
+		auth,
 		libSearchSrv,
 		scheduleAddSrv,
 		session,
@@ -101,7 +112,7 @@ func New(
 
 	upload.Register(
 		router.With("upload"),
-		authSrv,
+		auth,
 		mediaUploadSrv,
 		session,
 		errorHandler,
@@ -110,7 +121,7 @@ func New(
 
 	schedule.Register(
 		router.With("sch"),
-		authSrv,
+		auth,
 		getScheduleSrv,
 		session,
 		errorHandler,
@@ -118,8 +129,8 @@ func New(
 
 	autodj.Register(
 		router.With("dj"),
-		authSrv,
-		djSrv,
+		auth,
+		dj,
 		session,
 		errorHandler,
 	)

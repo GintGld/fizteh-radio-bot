@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -9,7 +10,9 @@ import (
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
 )
 
-func (s *Search) updateSlide(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *search) updateSlide(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "search.updateSlide"
+
 	s.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -26,7 +29,7 @@ func (s *Search) updateSlide(ctx context.Context, b *bot.Bot, update *models.Upd
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 	}
 	s.mediaPage.Set(chatId, id)
@@ -44,13 +47,15 @@ func (s *Search) updateSlide(ctx context.Context, b *bot.Bot, update *models.Upd
 		ReplyMarkup: s.mediaSliderMarkup(id, len(res)),
 	})
 	if err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 
 	s.msgIdStorage.Set(chatId, msg.ID)
 }
 
-func (s *Search) canceledDateTimeSelector(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage) {
+func (s *search) canceledDateTimeSelector(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage) {
+	const op = "search.canceledDateTimeSelector"
+
 	chatId := mes.Message.Chat.ID
 
 	id := s.mediaPage.Get(chatId)
@@ -63,7 +68,7 @@ func (s *Search) canceledDateTimeSelector(ctx context.Context, b *bot.Bot, mes m
 		ReplyMarkup: s.mediaSliderMarkup(id, len(res)),
 	})
 	if err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 	s.msgIdStorage.Set(chatId, msg.ID)
 }

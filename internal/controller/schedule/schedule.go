@@ -76,6 +76,8 @@ func Register(
 }
 
 func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "schedule.init"
+
 	chatId := update.Message.Chat.ID
 
 	if !s.auth.IsKnown(ctx, chatId) {
@@ -83,7 +85,7 @@ func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) 
 			ChatID: chatId,
 			Text:   ctr.ErrUnknown,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -95,7 +97,7 @@ func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) 
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -115,13 +117,15 @@ func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) 
 		ParseMode:   models.ParseModeHTML,
 	})
 	if err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 
 	s.msgIdStorage.Set(chatId, msg.ID)
 }
 
 func (s *schedule) update(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "schedule.update"
+
 	s.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -133,7 +137,7 @@ func (s *schedule) update(ctx context.Context, b *bot.Bot, update *models.Update
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -153,11 +157,13 @@ func (s *schedule) update(ctx context.Context, b *bot.Bot, update *models.Update
 		ReplyMarkup: s.mainMenuMarkup(1, pages),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
 func (s *schedule) newPage(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "schedule.newPage"
+
 	s.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -169,7 +175,7 @@ func (s *schedule) newPage(ctx context.Context, b *bot.Bot, update *models.Updat
 			MessageID: s.msgIdStorage.Get(chatId),
 			Text:      ctr.ErrorMessage,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -184,7 +190,7 @@ func (s *schedule) newPage(ctx context.Context, b *bot.Bot, update *models.Updat
 		ReplyMarkup: s.mainMenuMarkup(id, pages),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
@@ -193,11 +199,13 @@ func (s *schedule) nullHandler(ctx context.Context, b *bot.Bot, update *models.U
 }
 
 func (s *schedule) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
+	const op = "schedule.callbackAnswer"
+
 	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: callbackQuery.ID,
 	})
 	if err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 		return
 	}
 	if !ok {

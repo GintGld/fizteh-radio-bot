@@ -16,6 +16,8 @@ import (
 )
 
 func (u *upload) linkUpload(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "upload.linkUpload"
+
 	u.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -28,11 +30,13 @@ func (u *upload) linkUpload(ctx context.Context, b *bot.Bot, update *models.Upda
 		Text:        ctr.LibUploadAskLink,
 		ReplyMarkup: u.getSettingDataMarkup(),
 	}); err != nil {
-		u.onError(err)
+		u.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
 func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "upload.getLink"
+
 	chatId := update.Message.Chat.ID
 
 	msg := update.Message.Text
@@ -46,7 +50,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 				Text:   ctr.LibUploadErrInvalidLink,
 			})
 			if err != nil {
-				u.onError(err)
+				u.onError(fmt.Errorf("%s: %w", op, err))
 			}
 			u.msgIdStorage.Set(chatId, msg.ID)
 			return
@@ -55,7 +59,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			u.onError(err)
+			u.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -67,7 +71,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 		ChatID:    chatId,
 		MessageID: update.Message.ID,
 	}); err != nil {
-		u.onError(err)
+		u.onError(fmt.Errorf("%s: %w", op, err))
 	}
 
 	switch res.Type {
@@ -87,7 +91,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 			ReplyMarkup: u.mediaConfMarkup(conf),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
-			u.onError(err)
+			u.onError(fmt.Errorf("%s: %w", op, err))
 		}
 	case localModels.ResPlaylist:
 		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
@@ -97,7 +101,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 			ReplyMarkup: u.playlistMarkup(),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
-			u.onError(err)
+			u.onError(fmt.Errorf("%s: %w", op, err))
 		}
 	}
 }

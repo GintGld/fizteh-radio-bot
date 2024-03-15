@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -10,7 +11,9 @@ import (
 	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/split"
 )
 
-func (s *Search) update(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *search) update(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "search.update"
+
 	s.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -44,7 +47,7 @@ func (s *Search) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 			ReplyMarkup: s.mainMenuMarkup(opt),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	case "podcast-playlist":
@@ -78,7 +81,7 @@ func (s *Search) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 			Text:      msg,
 			ParseMode: models.ParseModeHTML,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -91,11 +94,13 @@ func (s *Search) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 		Text:        msg,
 		ReplyMarkup: s.getSettingDataMarkup(),
 	}); err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
-func (s *Search) getData(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *search) getData(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "search.getData"
+
 	chatId := update.Message.Chat.ID
 
 	opt := s.searchStorage.Get(chatId)
@@ -106,7 +111,7 @@ func (s *Search) getData(ctx context.Context, b *bot.Bot, update *models.Update)
 			ChatID: chatId,
 			Text:   ctr.LibUploadErrEmptyMsg,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -132,7 +137,7 @@ func (s *Search) getData(ctx context.Context, b *bot.Bot, update *models.Update)
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -145,7 +150,7 @@ func (s *Search) getData(ctx context.Context, b *bot.Bot, update *models.Update)
 		ChatID:    chatId,
 		MessageID: update.Message.ID,
 	}); err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 
 	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
@@ -155,11 +160,13 @@ func (s *Search) getData(ctx context.Context, b *bot.Bot, update *models.Update)
 		ReplyMarkup: s.mainMenuMarkup(opt),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
-func (s *Search) cancelSlider(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *search) cancelSlider(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "search.cancelSlider"
+
 	s.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -173,6 +180,6 @@ func (s *Search) cancelSlider(ctx context.Context, b *bot.Bot, update *models.Up
 		ReplyMarkup: s.mainMenuMarkup(opt),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }

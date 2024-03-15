@@ -2,6 +2,7 @@ package help
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -20,6 +21,7 @@ func Register(
 	onError bot.ErrorsHandler,
 ) {
 	router.RegisterCommand(func(ctx context.Context, b *bot.Bot, update *models.Update) {
+		const op = "help"
 
 		chatId := update.Message.Chat.ID
 
@@ -28,7 +30,7 @@ func Register(
 				ChatID: chatId,
 				Text:   ctr.ErrUnknown,
 			}); err != nil {
-				onError(err)
+				onError(fmt.Errorf("%s: %w", op, err))
 			}
 			return
 		}
@@ -37,7 +39,7 @@ func Register(
 			ChatID: chatId,
 			Text:   ctr.HelpMessage,
 		}); err != nil {
-			onError(err)
+			onError(fmt.Errorf("%s: %w", op, err))
 		}
 	})
 }

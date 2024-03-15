@@ -24,7 +24,7 @@ const (
 	butMsgCancel = "Назад"
 )
 
-func (s *Search) mainMenuMarkup(opt searchOption) models.InlineKeyboardMarkup {
+func (s *search) mainMenuMarkup(opt searchOption) models.InlineKeyboardMarkup {
 	msgFormat := butMsgSong
 	msgFormatSelect := butMsgPlaylist
 	if opt.format == formatPodcast {
@@ -53,7 +53,7 @@ func (s *Search) mainMenuMarkup(opt searchOption) models.InlineKeyboardMarkup {
 	}
 }
 
-func (s *Search) getSettingDataMarkup() models.InlineKeyboardMarkup {
+func (s *search) getSettingDataMarkup() models.InlineKeyboardMarkup {
 	return models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{
@@ -63,7 +63,7 @@ func (s *Search) getSettingDataMarkup() models.InlineKeyboardMarkup {
 	}
 }
 
-func (s *Search) mediaSliderMarkup(id int, maxId int) models.InlineKeyboardMarkup {
+func (s *search) mediaSliderMarkup(id int, maxId int) models.InlineKeyboardMarkup {
 	var (
 		butLeft = models.InlineKeyboardButton{
 			Text:         "\u00AB",

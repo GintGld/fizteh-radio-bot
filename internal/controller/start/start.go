@@ -18,7 +18,7 @@ const (
 
 // TODO delete messages with login and password after authorization.
 
-type Start struct {
+type start struct {
 	router  *ctr.Router
 	auth    Auth
 	session ctr.Session
@@ -38,7 +38,7 @@ func Register(
 	session ctr.Session,
 	onError bot.ErrorsHandler,
 ) {
-	app := &Start{
+	app := &start{
 		router:  router,
 		auth:    auth,
 		session: session,
@@ -56,7 +56,8 @@ func Register(
 //
 // May redirect to authorization
 // if user is unknown.
-func (s *Start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "start.init"
 
 	chatId := update.Message.Chat.ID
 
@@ -66,7 +67,7 @@ func (s *Start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   fmt.Sprintf(ctr.AuthorizedMessage, update.Message.From.FirstName),
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 	} else {
 		s.session.Redirect(chatId, s.router.Path(cmdLogin))
@@ -74,13 +75,14 @@ func (s *Start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.HelloMessage,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 	}
 }
 
 // Get login, validate it, ask for a password.
-func (s *Start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "start.login"
 
 	chatId := update.Message.Chat.ID
 
@@ -90,7 +92,7 @@ func (s *Start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrEmptyLogin,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -102,12 +104,13 @@ func (s *Start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
 		ChatID: chatId,
 		Text:   ctr.GotLoginAskPass,
 	}); err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
 // Get pass, validate it
-func (s *Start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "start.pass"
 
 	chatId := update.Message.Chat.ID
 
@@ -117,7 +120,7 @@ func (s *Start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrEmptyPass,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -130,7 +133,7 @@ func (s *Start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrAuthorizedMessage,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -142,6 +145,6 @@ func (s *Start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 		ChatID: chatId,
 		Text:   fmt.Sprintf(ctr.WelcomeMessage, update.Message.From.FirstName),
 	}); err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }

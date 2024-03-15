@@ -34,12 +34,12 @@ const (
 	cmdNoOp ctr.Command = "no-op"
 )
 
-type Search struct {
-	router  *ctr.Router
-	auth    Auth
-	search  LibrarySearch
-	session ctr.Session
-	onError bot.ErrorsHandler
+type search struct {
+	router    *ctr.Router
+	auth      Auth
+	libSearch LibrarySearch
+	session   ctr.Session
+	onError   bot.ErrorsHandler
 
 	searchStorage       storage.Storage[searchOption]
 	targetUpdateStorage storage.Storage[string]
@@ -88,17 +88,17 @@ func (sOpt searchFormat) String() string {
 func Register(
 	router *ctr.Router,
 	auth Auth,
-	search LibrarySearch,
+	libSearch LibrarySearch,
 	scheduleAdd datetime.ScheduleAdd,
 	session ctr.Session,
 	onError bot.ErrorsHandler,
 ) {
-	s := &Search{
-		router:  router,
-		auth:    auth,
-		search:  search,
-		session: session,
-		onError: onError,
+	s := &search{
+		router:    router,
+		auth:      auth,
+		libSearch: libSearch,
+		session:   session,
+		onError:   onError,
 
 		searchStorage:       storage.New[searchOption](),
 		targetUpdateStorage: storage.New[string](),
@@ -122,7 +122,6 @@ func Register(
 	// media slider
 	router.RegisterCallbackPrefix(cmdUpdateSlide, s.updateSlide)
 	router.RegisterCallback(cmdCloseSlider, s.cancelSlider)
-	// FIXME implemect cancel buttons
 
 	// selector for schedule modify
 	datetime.Register(
@@ -139,7 +138,9 @@ func Register(
 	router.RegisterCallback(cmdNoOp, s.nullHandler)
 }
 
-func (s *Search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "search.init"
+
 	chatId := update.Message.Chat.ID
 
 	if !s.auth.IsKnown(ctx, chatId) {
@@ -147,7 +148,7 @@ func (s *Search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrUnknown,
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -161,7 +162,7 @@ func (s *Search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 		ParseMode:   models.ParseModeHTML,
 	})
 	if err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 
 	s.msgIdStorage.Set(chatId, msg.ID)
@@ -170,7 +171,9 @@ func (s *Search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 // submit gets text to search,
 // search option and returns
 // slider for found media.
-func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *search) submit(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "search.submit"
+
 	s.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -184,7 +187,7 @@ func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 	tags = append(tags, opt.languages...)
 	tags = append(tags, opt.moods...)
 
-	res, err := s.search.Search(ctx, chatId, localModels.MediaFilter{
+	res, err := s.libSearch.Search(ctx, chatId, localModels.MediaFilter{
 		Name:       opt.nameAuthor,
 		Author:     opt.nameAuthor,
 		Tags:       tags,
@@ -192,7 +195,7 @@ func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 	})
 	// TODO enhance errors
 	if err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 
 	if len(res) == 0 {
@@ -202,7 +205,7 @@ func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 			Text:        ctr.LibSearchErrEmptyRes,
 			ReplyMarkup: s.getSettingDataMarkup(),
 		}); err != nil {
-			s.onError(err)
+			s.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -220,7 +223,7 @@ func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 	})
 
 	if err != nil {
-		s.onError(err)
+		s.onError(fmt.Errorf("%s: %w", op, err))
 	}
 
 	s.msgIdStorage.Set(chatId, msg.ID)
@@ -228,12 +231,27 @@ func (s *Search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 
 // TODO: update
 
-func (s *Search) nullHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (s *search) nullHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	s.callbackAnswer(ctx, b, update.CallbackQuery)
 }
 
+func (s *search) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
+	const op = "search.callbackAnswer"
+
+	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: callbackQuery.ID,
+	})
+	if err != nil {
+		s.onError(fmt.Errorf("%s: %w", op, err))
+		return
+	}
+	if !ok {
+		s.onError(fmt.Errorf("callback answer failed"))
+	}
+}
+
 // filterRepr returns formated filter info.
-func (s *Search) filterRepr(opt searchOption) string {
+func (s *search) filterRepr(opt searchOption) string {
 	var b strings.Builder
 
 	b.WriteString("<b>Настройки поиска:</b>\n")
@@ -262,7 +280,7 @@ func (s *Search) filterRepr(opt searchOption) string {
 
 // mediaRepr returns media formatted
 // for telegram message.
-func (s *Search) mediaRepr(media localModels.Media) string {
+func (s *search) mediaRepr(media localModels.Media) string {
 	var b strings.Builder
 
 	b.WriteString("<b>Композиция</b>\n")
@@ -302,17 +320,4 @@ func (s *Search) mediaRepr(media localModels.Media) string {
 	}
 
 	return b.String()
-}
-
-func (s *Search) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
-	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: callbackQuery.ID,
-	})
-	if err != nil {
-		s.onError(err)
-		return
-	}
-	if !ok {
-		s.onError(fmt.Errorf("callback answer failed"))
-	}
 }

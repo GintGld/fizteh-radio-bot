@@ -14,6 +14,8 @@ import (
 )
 
 func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "upload.updateSettings"
+
 	u.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -49,7 +51,7 @@ func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.
 			ReplyMarkup: u.mediaConfMarkup(conf),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
-			u.onError(err)
+			u.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	case "podcast-playlist":
@@ -87,7 +89,7 @@ func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.
 			ReplyMarkup: u.mediaConfMarkup(conf),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
-			u.onError(err)
+			u.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -101,11 +103,13 @@ func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.
 		ReplyMarkup: u.getSettingDataMarkup(),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		u.onError(err)
+		u.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
 func (u *upload) getSettingNewData(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "upload.getSettingNewData"
+
 	chatId := update.Message.Chat.ID
 
 	conf := u.mediaConfigStorage.Get(chatId)
@@ -117,7 +121,7 @@ func (u *upload) getSettingNewData(ctx context.Context, b *bot.Bot, update *mode
 			MessageID: u.msgIdStorage.Get(chatId),
 			Text:      ctr.LibUploadErrEmptyMsg,
 		}); err != nil {
-			u.onError(err)
+			u.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -147,7 +151,7 @@ func (u *upload) getSettingNewData(ctx context.Context, b *bot.Bot, update *mode
 		ChatID:    chatId,
 		MessageID: update.Message.ID,
 	}); err != nil {
-		u.onError(err)
+		u.onError(fmt.Errorf("%s: %w", op, err))
 	}
 	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
@@ -156,11 +160,13 @@ func (u *upload) getSettingNewData(ctx context.Context, b *bot.Bot, update *mode
 		ReplyMarkup: u.mediaConfMarkup(conf),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		u.onError(err)
+		u.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
 func (u *upload) cancelSubTask(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "upload.cancelSubTask"
+
 	u.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -174,7 +180,7 @@ func (u *upload) cancelSubTask(ctx context.Context, b *bot.Bot, update *models.U
 		ReplyMarkup: u.mediaConfMarkup(conf),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		u.onError(err)
+		u.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 

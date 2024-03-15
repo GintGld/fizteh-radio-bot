@@ -105,6 +105,8 @@ func Register(
 }
 
 func (u *upload) init(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "upload.init"
+
 	chatId := update.Message.Chat.ID
 
 	if !u.auth.IsKnown(ctx, chatId) {
@@ -112,7 +114,7 @@ func (u *upload) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrUnknown,
 		}); err != nil {
-			u.onError(err)
+			u.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -122,13 +124,15 @@ func (u *upload) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 		ReplyMarkup: u.mainMenuMarkup(),
 	})
 	if err != nil {
-		u.onError(err)
+		u.onError(fmt.Errorf("%s: %w", op, err))
 	}
 
 	u.msgIdStorage.Set(chatId, msg.ID)
 }
 
 func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "upload.submit"
+
 	u.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -148,7 +152,7 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			u.onError(err)
+			u.onError(fmt.Errorf("%s: %w", op, err))
 		}
 		return
 	}
@@ -163,11 +167,13 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 		MessageID: u.msgIdStorage.Get(chatId),
 		Text:      ctr.LibUploadSuccess,
 	}); err != nil {
-		u.onError(err)
+		u.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
 func (u *upload) returnToMainMenu(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "uplaod.returnToMainMenu"
+
 	u.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -183,7 +189,7 @@ func (u *upload) returnToMainMenu(ctx context.Context, b *bot.Bot, update *model
 		Text:        ctr.LibUpload,
 		ReplyMarkup: u.mainMenuMarkup(),
 	}); err != nil {
-		u.onError(err)
+		u.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
@@ -192,11 +198,13 @@ func (u *upload) nullHandler(ctx context.Context, b *bot.Bot, update *models.Upd
 }
 
 func (u *upload) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
+	const op = "upload.callbackAnswer"
+
 	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: callbackQuery.ID,
 	})
 	if err != nil {
-		u.onError(err)
+		u.onError(fmt.Errorf("%s: %w", op, err))
 		return
 	}
 	if !ok {

@@ -68,6 +68,8 @@ func Register(
 }
 
 func (p *picker) init(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "picker.init"
+
 	p.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -86,13 +88,15 @@ func (p *picker) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 		),
 	})
 	if err != nil {
-		p.onError(err)
+		p.onError(fmt.Errorf("%s: %w", op, err))
 		return
 	}
 	p.msgIdStorage.Set(chatId, msg.ID)
 }
 
 func (p *picker) catchDatePicker(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage, date time.Time) {
+	const op = "picker.catchDatePicker"
+
 	chatId := mes.Message.Chat.ID
 
 	p.dateStorage.Set(chatId, date)
@@ -103,13 +107,15 @@ func (p *picker) catchDatePicker(ctx context.Context, b *bot.Bot, mes models.May
 		ReplyMarkup: p.timePickMarkup(),
 	})
 	if err != nil {
-		p.onError(err)
+		p.onError(fmt.Errorf("%s: %w", op, err))
 	}
 
 	p.msgIdStorage.Set(chatId, msg.ID)
 }
 
 func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "picker.submitDateTime"
+
 	p.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -132,7 +138,7 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 		Protected: true,
 	}
 	if err := p.schedule.NewSegment(ctx, chatId, segm); err != nil {
-		p.onError(err)
+		p.onError(fmt.Errorf("%s: %w", op, err))
 		// TODO: handle many errors
 	}
 
@@ -141,11 +147,13 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 		MessageID: p.msgIdStorage.Get(chatId),
 		Text:      p.successMsg(date, date.Add(media.Duration)),
 	}); err != nil {
-		p.onError(err)
+		p.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
 func (p *picker) cancelTimePicker(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "picker.cancelTimePicker"
+
 	p.callbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
@@ -162,16 +170,18 @@ func (p *picker) cancelTimePicker(ctx context.Context, b *bot.Bot, update *model
 			datepicker.OnError(datepicker.OnErrorHandler(p.onError)),
 		),
 	}); err != nil {
-		p.onError(err)
+		p.onError(fmt.Errorf("%s: %w", op, err))
 	}
 }
 
 func (p *picker) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
+	const op = "picker.callbackAnswer"
+
 	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: callbackQuery.ID,
 	})
 	if err != nil {
-		p.onError(err)
+		p.onError(fmt.Errorf("%s: %w", op, err))
 		return
 	}
 	if !ok {

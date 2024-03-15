@@ -78,6 +78,7 @@ const (
 	LibUploadAskLink         = "Отправь мне ссылку на скачивание. Поддерживаемые сервисы на данный момент: Яндекс."
 	LibUploadSuccess         = "Загружено."
 	LibUploadErrEmptyMsg     = "Не надо делать пустое поле..."
+	LibUploadErrInvalidLink  = "Не могу распознать твою ссылку"
 
 	// "/sch" command
 	SchMainMenuMessage = "Можем посмотреть расписание или настроить авто диджея."

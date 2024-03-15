@@ -6,11 +6,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// type Editor struct {
-// 	Login string `json:"login"`
-// 	Pass  string `json:"pass"`
-// }
-
 type User struct {
 	Login string
 	Pass  string
@@ -18,11 +13,17 @@ type User struct {
 }
 
 type Media struct {
-	ID       int64         `json:"id"`
-	Name     string        `json:"name"`
-	Author   string        `json:"author"`
-	Duration time.Duration `json:"duration"`
-	Tags     TagList       `json:"tags"`
+	ID         int64         `json:"id"`
+	Name       string        `json:"name"`
+	Author     string        `json:"author"`
+	Duration   time.Duration `json:"duration"`
+	Tags       TagList       `json:"tags"`
+	SourcePath string        `json:"-"`
+}
+
+type Playlist struct {
+	Name   string
+	Values []Media
 }
 
 type MediaConfig struct {
@@ -47,10 +48,7 @@ const (
 type LinkDownloadResult struct {
 	Type     ResultType
 	Media    Media
-	Playlist struct {
-		Name   string
-		Values []Media
-	}
+	Playlist Playlist
 }
 
 type ResultType int

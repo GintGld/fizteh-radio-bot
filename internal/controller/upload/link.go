@@ -2,6 +2,7 @@ package upload
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
 	localModels "github.com/GintGld/fizteh-radio-bot/internal/models"
+	"github.com/GintGld/fizteh-radio-bot/internal/service"
 )
 
 func (u *upload) linkUpload(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -38,6 +40,17 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 	res, err := u.mediaUpload.LinkDownload(ctx, chatId, msg)
 	if err != nil {
 		// Handle more errors.
+		if errors.Is(err, service.ErrInvalidLink) {
+			msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: chatId,
+				Text:   ctr.LibUploadErrInvalidLink,
+			})
+			if err != nil {
+				u.onError(err)
+			}
+			u.msgIdStorage.Set(chatId, msg.ID)
+			return
+		}
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,

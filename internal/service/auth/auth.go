@@ -90,7 +90,7 @@ func (a *auth) Login(ctx context.Context, id int64, login, pass string) error {
 // Token returns user's token
 // if user does not exists
 // returns service.ErrUserNotFound error.
-func (a *auth) Token(ctx context.Context, id int64) (jwt.Token, error) {
+func (a *auth) Token(_ context.Context, id int64) (jwt.Token, error) {
 	a.userMutex[id].Lock()
 	defer a.userMutex[id].Unlock()
 
@@ -110,7 +110,7 @@ func (a *auth) Dump() {
 // updateToken updates token for user.
 func (a *auth) updateToken(ctx context.Context, id int64) error {
 	const op = "auth.updateToken"
-	const timeBeforeTokenExpires = 5 * time.Second
+	const timeUntilTokenExpires = 5 * time.Second
 
 	select {
 	case <-ctx.Done():
@@ -155,7 +155,7 @@ func (a *auth) updateToken(ctx context.Context, id int64) error {
 		Token: token,
 	}
 
-	time.AfterFunc(time.Until(exp.Time)-timeBeforeTokenExpires, func() {
+	time.AfterFunc(time.Until(exp.Time)-timeUntilTokenExpires, func() {
 		a.updateToken(ctx, id)
 	})
 

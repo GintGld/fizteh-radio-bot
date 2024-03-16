@@ -75,15 +75,15 @@ func New(
 		)
 		l := libSrv.New(
 			log,
-			nil, // TODO
+			a,
 			nil, // TODO
 			nil, // TODO
 		)
 		s := schSrv.New(
 			log,
+			a,
 			nil, // TODO
-			nil, // TODO
-			nil, // TODO
+			nil, //
 		)
 
 		auth = a

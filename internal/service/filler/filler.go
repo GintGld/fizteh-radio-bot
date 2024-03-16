@@ -11,7 +11,7 @@ import (
 )
 
 type Filler struct {
-	conf      models.AutoDJConfig
+	conf      models.AutoDJInfo
 	confMutex sync.Mutex
 }
 
@@ -88,14 +88,14 @@ func (f *Filler) NewSegment(_ context.Context, _ int64, _ models.Segment) error 
 	return nil
 }
 
-func (f *Filler) Config(_ context.Context, _ int64) (models.AutoDJConfig, error) {
+func (f *Filler) Config(_ context.Context, _ int64) (models.AutoDJInfo, error) {
 	f.confMutex.Lock()
 	defer f.confMutex.Unlock()
 
 	return f.conf, nil
 }
 
-func (f *Filler) SetConfig(_ context.Context, _ int64, conf models.AutoDJConfig) error {
+func (f *Filler) SetConfig(_ context.Context, _ int64, conf models.AutoDJInfo) error {
 	f.confMutex.Lock()
 	defer f.confMutex.Unlock()
 

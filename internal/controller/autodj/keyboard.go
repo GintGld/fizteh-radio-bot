@@ -19,7 +19,7 @@ const (
 	butMsgStop     = "Остановить"
 )
 
-func (a *autodj) mainMenuMarkup(conf localModels.AutoDJConfig) models.InlineKeyboardMarkup {
+func (a *autodj) mainMenuMarkup(conf localModels.AutoDJInfo) models.InlineKeyboardMarkup {
 	playing := butMsgStart
 	if conf.IsPlaying {
 		playing = butMsgStop

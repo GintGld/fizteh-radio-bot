@@ -64,13 +64,13 @@ func (l *library) Search(ctx context.Context, id int64, filter models.MediaFilte
 
 	log := l.log.With(
 		slog.String("op", op),
+		slog.Int64("userId", id),
 	)
 
 	token, err := l.auth.Token(ctx, id)
 	if err != nil {
 		log.Error(
 			"failed to get token",
-			slog.Int64("id", id),
 			sl.Err(err),
 		)
 		return []models.Media{}, fmt.Errorf("%s: %w", op, err)
@@ -80,7 +80,6 @@ func (l *library) Search(ctx context.Context, id int64, filter models.MediaFilte
 	if err != nil {
 		log.Error(
 			"failed to get library",
-			slog.Int64("id", id),
 			sl.Err(err),
 		)
 		return []models.Media{}, fmt.Errorf("%s: %w", op, err)
@@ -94,13 +93,13 @@ func (l *library) NewMedia(ctx context.Context, id int64, mediaConf models.Media
 
 	log := l.log.With(
 		slog.String("op", op),
+		slog.Int64("userId", id),
 	)
 
 	token, err := l.auth.Token(ctx, id)
 	if err != nil {
 		log.Error(
 			"failed to get token",
-			slog.Int64("id", id),
 			sl.Err(err),
 		)
 		return fmt.Errorf("%s: %w", op, err)
@@ -127,7 +126,6 @@ func (l *library) NewMedia(ctx context.Context, id int64, mediaConf models.Media
 	if err := l.libClient.NewMedia(ctx, token, media); err != nil {
 		log.Error(
 			"failed to upload media",
-			slog.Int64("id", id),
 			sl.Err(err),
 		)
 		return fmt.Errorf("%s: %w", op, err)
@@ -141,6 +139,7 @@ func (l *library) LinkDownload(ctx context.Context, id int64, link string) (mode
 
 	log := l.log.With(
 		slog.String("op", op),
+		slog.Int64("userId", id),
 	)
 
 	var res models.LinkDownloadResult
@@ -152,7 +151,8 @@ func (l *library) LinkDownload(ctx context.Context, id int64, link string) (mode
 
 		trackId, err := strconv.Atoi(subStr)
 		if err != nil {
-			log.Error("failed to convert id to int",
+			log.Error(
+				"failed to convert id to int",
 				slog.String("link", link),
 				slog.String("expected id", subStr),
 				sl.Err(err),
@@ -217,13 +217,13 @@ func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownl
 
 	log := l.log.With(
 		slog.String("op", op),
+		slog.Int64("userId", id),
 	)
 
 	token, err := l.auth.Token(ctx, id)
 	if err != nil {
 		log.Error(
 			"failed to get token",
-			slog.Int64("id", id),
 			sl.Err(err),
 		)
 		return fmt.Errorf("%s: %w", op, err)
@@ -235,7 +235,7 @@ func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownl
 	case models.ResPlaylist:
 		if err := l.libClient.NewTag(ctx, token, models.Tag{
 			Name: res.Playlist.Name,
-			Type: models.TagTypesAvail[3], // tag type "playlist"
+			Type: models.TagTypesAvail["playlists"], // tag type "playlist"
 		}); err != nil {
 			// TODO: handle "tag already exist" tag.
 			log.Error(

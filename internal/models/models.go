@@ -65,12 +65,17 @@ type MediaFilter struct {
 	MaxRespLen int
 }
 
-type AutoDJConfig struct {
+type AutoDJInfo struct {
 	IsPlaying bool
 	Genres    []string
 	Playlists []string
 	Languages []string
 	Moods     []string
+}
+
+// TODO add stub
+type AutoDJConfig struct {
+	Tags TagList `json:"tags"`
 }
 
 type TagTypes []TagType
@@ -88,12 +93,12 @@ type TagType struct {
 }
 
 var (
-	TagTypesAvail = TagTypes{
-		TagType{ID: 1, Name: "format"},
-		TagType{ID: 2, Name: "genre"},
-		TagType{ID: 3, Name: "playlist"},
-		TagType{ID: 4, Name: "mood"},
-		TagType{ID: 5, Name: "language"},
+	TagTypesAvail = map[string]TagType{
+		"format":   {ID: 1, Name: "format"},
+		"genre":    {ID: 2, Name: "genre"},
+		"playlist": {ID: 3, Name: "playlist"},
+		"mood":     {ID: 4, Name: "mood"},
+		"language": {ID: 5, Name: "language"},
 	}
 )
 

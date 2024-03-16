@@ -33,7 +33,7 @@ type autodj struct {
 	session ctr.Session
 	onError bot.ErrorsHandler
 
-	confStorage         storage.Storage[localModels.AutoDJConfig]
+	confStorage         storage.Storage[localModels.AutoDJInfo]
 	targetUpdateStorage storage.Storage[string]
 	msgIdStorage        storage.Storage[int]
 }
@@ -43,10 +43,10 @@ type Auth interface {
 }
 
 type AutoDJ interface {
-	Config(ctx context.Context, id int64) (localModels.AutoDJConfig, error)
-	SetConfig(ctx context.Context, id int64, config localModels.AutoDJConfig) error
-	StartAutoDJ(ctx context.Context) error
-	StopAutoDJ(ctx context.Context) error
+	Config(ctx context.Context, id int64) (localModels.AutoDJInfo, error)
+	SetConfig(ctx context.Context, id int64, config localModels.AutoDJInfo) error
+	StartAutoDJ(ctx context.Context, id int64) error
+	StopAutoDJ(ctx context.Context, id int64) error
 }
 
 func Register(
@@ -63,7 +63,7 @@ func Register(
 		session: session,
 		onError: onError,
 
-		confStorage:         storage.New[localModels.AutoDJConfig](),
+		confStorage:         storage.New[localModels.AutoDJInfo](),
 		targetUpdateStorage: storage.New[string](),
 		msgIdStorage:        storage.New[int](),
 	}
@@ -241,9 +241,9 @@ func (a *autodj) startStop(ctx context.Context, b *bot.Bot, update *models.Updat
 
 	switch conf.IsPlaying {
 	case true:
-		err = a.dj.StopAutoDJ(ctx)
+		err = a.dj.StopAutoDJ(ctx, chatId)
 	case false:
-		err = a.dj.StartAutoDJ(ctx)
+		err = a.dj.StartAutoDJ(ctx, chatId)
 	}
 
 	if err != nil {
@@ -371,7 +371,7 @@ func (a *autodj) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *
 	}
 }
 
-func (a *autodj) configRepr(conf localModels.AutoDJConfig) string {
+func (a *autodj) configRepr(conf localModels.AutoDJInfo) string {
 	var b strings.Builder
 
 	b.WriteString("<b>Настройки автодиджея:</b>\n")

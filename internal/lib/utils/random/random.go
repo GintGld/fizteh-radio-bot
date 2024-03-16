@@ -9,6 +9,10 @@ import (
 	"github.com/GintGld/fizteh-radio-bot/internal/models"
 )
 
+var (
+	types = []string{"format", "genre", "playlist", "mood", "language"}
+)
+
 func Media() models.Media {
 	return models.Media{
 		Name:   gofakeit.MovieName(),
@@ -32,7 +36,7 @@ func TagList() models.TagList {
 func Tag() models.Tag {
 	return models.Tag{
 		Name: gofakeit.Adjective(),
-		Type: models.TagTypesAvail[rand.Intn(len(models.TagTypesAvail))],
+		Type: models.TagTypesAvail[types[rand.Intn(len(models.TagTypesAvail))]],
 	}
 
 }

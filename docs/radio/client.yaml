@@ -1,0 +1,10 @@
+package: client
+generate:
+  client: true
+output: internal/client/radio/oapi-codegen/client.gen.go
+output-options:
+  exclude-tags:
+    - 'Root: Editors'
+    - 'Root: Radio'
+    - 'Radio'
+  client-type-name: Client

@@ -1,0 +1,9 @@
+package: client
+generate:
+  models: true
+output: internal/client/radio/oapi-codegen/types.gen.go
+output-options:
+  exclude-tags:
+    - 'Root: Editors'
+    - 'Root: Radio'
+    - 'Radio' 

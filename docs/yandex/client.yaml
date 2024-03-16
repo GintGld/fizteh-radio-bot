@@ -1,0 +1,11 @@
+package: client
+generate:
+  client: true
+output: internal/client/yandex/oapi-codegen/client.gen.go
+output-options:
+  include-operation-ids:
+    - getDownloadInfo # /tracks/{trackId}/download-info GET
+    - getAlbumsWithTracks # /albums/{albumId}/with-tracks GET
+    - getPlaylistById # /users/{userId}/playlists/{kind} GET
+    - search # /search GET 
+  client-type-name: Client

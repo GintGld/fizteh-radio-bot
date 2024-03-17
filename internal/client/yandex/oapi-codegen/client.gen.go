@@ -88,41 +88,11 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// GetAlbumsWithTracks request
-	GetAlbumsWithTracks(ctx context.Context, albumId float32, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// Search request
-	Search(ctx context.Context, params *SearchParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// GetDownloadInfo request
 	GetDownloadInfo(ctx context.Context, trackId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPlaylistById request
 	GetPlaylistById(ctx context.Context, userId float32, kind float32, reqEditors ...RequestEditorFn) (*http.Response, error)
-}
-
-func (c *Client) GetAlbumsWithTracks(ctx context.Context, albumId float32, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAlbumsWithTracksRequest(c.Server, albumId)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) Search(ctx context.Context, params *SearchParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSearchRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
 }
 
 func (c *Client) GetDownloadInfo(ctx context.Context, trackId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -147,125 +117,6 @@ func (c *Client) GetPlaylistById(ctx context.Context, userId float32, kind float
 		return nil, err
 	}
 	return c.Client.Do(req)
-}
-
-// NewGetAlbumsWithTracksRequest generates requests for GetAlbumsWithTracks
-func NewGetAlbumsWithTracksRequest(server string, albumId float32) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "albumId", runtime.ParamLocationPath, albumId)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/albums/%s/with-tracks", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewSearchRequest generates requests for Search
-func NewSearchRequest(server string, params *SearchParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/search")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "text", runtime.ParamLocationQuery, params.Text); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "page", runtime.ParamLocationQuery, params.Page); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		if queryFrag, err := runtime.StyleParamWithLocation("form", true, "type", runtime.ParamLocationQuery, params.Type); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		if params.Nococrrect != nil {
-
-			if queryFrag, err := runtime.StyleParamWithLocation("form", true, "nococrrect", runtime.ParamLocationQuery, *params.Nococrrect); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
 }
 
 // NewGetDownloadInfoRequest generates requests for GetDownloadInfo
@@ -386,61 +237,11 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// GetAlbumsWithTracksWithResponse request
-	GetAlbumsWithTracksWithResponse(ctx context.Context, albumId float32, reqEditors ...RequestEditorFn) (*GetAlbumsWithTracksResponse, error)
-
-	// SearchWithResponse request
-	SearchWithResponse(ctx context.Context, params *SearchParams, reqEditors ...RequestEditorFn) (*SearchResponse, error)
-
 	// GetDownloadInfoWithResponse request
 	GetDownloadInfoWithResponse(ctx context.Context, trackId string, reqEditors ...RequestEditorFn) (*GetDownloadInfoResponse, error)
 
 	// GetPlaylistByIdWithResponse request
 	GetPlaylistByIdWithResponse(ctx context.Context, userId float32, kind float32, reqEditors ...RequestEditorFn) (*GetPlaylistByIdResponse, error)
-}
-
-type GetAlbumsWithTracksResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *InlineResponse20011
-}
-
-// Status returns HTTPResponse.Status
-func (r GetAlbumsWithTracksResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetAlbumsWithTracksResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type SearchResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *InlineResponse20022
-}
-
-// Status returns HTTPResponse.Status
-func (r SearchResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r SearchResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
 }
 
 type GetDownloadInfoResponse struct {
@@ -487,24 +288,6 @@ func (r GetPlaylistByIdResponse) StatusCode() int {
 	return 0
 }
 
-// GetAlbumsWithTracksWithResponse request returning *GetAlbumsWithTracksResponse
-func (c *ClientWithResponses) GetAlbumsWithTracksWithResponse(ctx context.Context, albumId float32, reqEditors ...RequestEditorFn) (*GetAlbumsWithTracksResponse, error) {
-	rsp, err := c.GetAlbumsWithTracks(ctx, albumId, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetAlbumsWithTracksResponse(rsp)
-}
-
-// SearchWithResponse request returning *SearchResponse
-func (c *ClientWithResponses) SearchWithResponse(ctx context.Context, params *SearchParams, reqEditors ...RequestEditorFn) (*SearchResponse, error) {
-	rsp, err := c.Search(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseSearchResponse(rsp)
-}
-
 // GetDownloadInfoWithResponse request returning *GetDownloadInfoResponse
 func (c *ClientWithResponses) GetDownloadInfoWithResponse(ctx context.Context, trackId string, reqEditors ...RequestEditorFn) (*GetDownloadInfoResponse, error) {
 	rsp, err := c.GetDownloadInfo(ctx, trackId, reqEditors...)
@@ -521,58 +304,6 @@ func (c *ClientWithResponses) GetPlaylistByIdWithResponse(ctx context.Context, u
 		return nil, err
 	}
 	return ParseGetPlaylistByIdResponse(rsp)
-}
-
-// ParseGetAlbumsWithTracksResponse parses an HTTP response from a GetAlbumsWithTracksWithResponse call
-func ParseGetAlbumsWithTracksResponse(rsp *http.Response) (*GetAlbumsWithTracksResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetAlbumsWithTracksResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest InlineResponse20011
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseSearchResponse parses an HTTP response from a SearchWithResponse call
-func ParseSearchResponse(rsp *http.Response) (*SearchResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &SearchResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest InlineResponse20022
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
 }
 
 // ParseGetDownloadInfoResponse parses an HTTP response from a GetDownloadInfoWithResponse call

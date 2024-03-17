@@ -23,12 +23,14 @@ import (
 	libSrv "github.com/GintGld/fizteh-radio-bot/internal/service/library"
 	schSrv "github.com/GintGld/fizteh-radio-bot/internal/service/schedule"
 	"github.com/GintGld/fizteh-radio-bot/internal/service/session"
+
+	radioCl "github.com/GintGld/fizteh-radio-bot/internal/client/radio"
+	yandexCl "github.com/GintGld/fizteh-radio-bot/internal/client/yandex"
 )
 
 type App struct {
-	log     *slog.Logger
-	bot     *bot.Bot
-	yaToken string
+	log *slog.Logger
+	bot *bot.Bot
 
 	server *http.Server
 	cancel context.CancelFunc
@@ -41,7 +43,7 @@ func New(
 	yaToken string,
 	webhookAddr string,
 	tmpDir string,
-	useFiller bool,
+	srvFiller bool,
 ) *App {
 	bot, err := bot.New(tgToken,
 		bot.WithDefaultHandler(defaultHandler),
@@ -50,6 +52,25 @@ func New(
 		panic("failed to create bot: " + err.Error())
 	}
 
+	// Clients
+	var (
+		authClient authSrv.AuthClient
+		libClient  libSrv.LibraryClient
+		yaClient   libSrv.YaClient
+		schClient  schSrv.ScheduleClient
+		djClient   schSrv.AutoDJClient
+	)
+
+	radioClient := radioCl.New()
+	yandexClient := yandexCl.New(yaToken)
+
+	authClient = radioClient
+	libClient = radioClient
+	yaClient = yandexClient
+	schClient = radioClient
+	djClient = radioClient
+
+	// Services
 	var (
 		auth           start.Auth
 		libSearchSrv   search.LibrarySearch
@@ -59,7 +80,7 @@ func New(
 		dj             autodj.AutoDJ
 	)
 
-	if useFiller {
+	if srvFiller {
 		filler := filler.New()
 
 		auth = filler
@@ -71,19 +92,19 @@ func New(
 	} else {
 		a := authSrv.New(
 			log,
-			nil, // TODO
+			authClient,
 		)
 		l := libSrv.New(
 			log,
 			a,
-			nil, // TODO
-			nil, // TODO
+			libClient,
+			yaClient,
 		)
 		s := schSrv.New(
 			log,
 			a,
-			nil, // TODO
-			nil, //
+			schClient,
+			djClient,
 		)
 
 		auth = a
@@ -92,8 +113,6 @@ func New(
 		mediaUploadSrv = l
 		getScheduleSrv = s
 		dj = s
-
-		panic("not implemented") // FIXME add client to services
 	}
 
 	session := session.New[string]()
@@ -157,7 +176,6 @@ func New(
 			Addr:    webhookAddr,
 			Handler: bot.WebhookHandler(),
 		},
-		yaToken: yaToken,
 	}
 }
 

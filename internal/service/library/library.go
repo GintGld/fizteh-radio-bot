@@ -223,14 +223,7 @@ func (l *library) linkTrack(ctx context.Context, url string) (models.Media, erro
 		slog.String("op", op),
 	)
 
-	trackId := string(yaSong.ExpandString([]byte{}, "$track", url, yaSong.FindSubmatchIndex([]byte(url))))
-	albumId := string(yaSong.ExpandString([]byte{}, "$album", url, yaSong.FindSubmatchIndex([]byte(url))))
-
-	log.Debug(
-		"parsed values",
-		slog.String("trackId", trackId),
-		slog.String("albumId", albumId),
-	)
+	trackId, albumId := exctractTrackInfo(url)
 
 	album, err := l.yaClient.Album(ctx, albumId)
 	if err != nil {
@@ -282,14 +275,7 @@ func (l *library) linkPlaylist(ctx context.Context, url string) (models.Playlist
 		slog.String("op", op),
 	)
 
-	userName := string(yaPlaylist.ExpandString([]byte{}, "$user", url, yaPlaylist.FindSubmatchIndex([]byte(url))))
-	kind := string(yaPlaylist.ExpandString([]byte{}, "$kind", url, yaSong.FindSubmatchIndex([]byte(url))))
-
-	log.Debug(
-		"parsed values",
-		slog.String("user", userName),
-		slog.String("kind", kind),
-	)
+	kind, userName := exctractPlaylistInfo(url)
 
 	playlist, err := l.yaClient.Playlist(ctx, userName, kind)
 	if err != nil {
@@ -441,4 +427,18 @@ func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownl
 	}
 
 	return nil
+}
+
+func exctractTrackInfo(url string) (trackId, albumId string) {
+	trackId = string(yaSong.ExpandString([]byte{}, "$track", url, yaSong.FindSubmatchIndex([]byte(url))))
+	albumId = string(yaSong.ExpandString([]byte{}, "$album", url, yaSong.FindSubmatchIndex([]byte(url))))
+
+	return
+}
+
+func exctractPlaylistInfo(url string) (kind, user string) {
+	kind = string(yaPlaylist.ExpandString([]byte{}, "$kind", url, yaPlaylist.FindSubmatchIndex([]byte(url))))
+	user = string(yaPlaylist.ExpandString([]byte{}, "$user", url, yaPlaylist.FindSubmatchIndex([]byte(url))))
+
+	return
 }

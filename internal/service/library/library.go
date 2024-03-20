@@ -120,14 +120,42 @@ func (l *library) NewMedia(ctx context.Context, id int64, mediaConf models.Media
 			len(mediaConf.Languages)+
 			len(mediaConf.Moods),
 	)
-	for i := range mediaConf.Playlists {
-		tags[i] = models.Tag{}
+	for _, t := range mediaConf.Playlists {
+		tags = append(tags, models.Tag{
+			Name: t,
+			Type: models.TagTypesAvail["playlist"],
+		})
+	}
+	for _, t := range mediaConf.Podcasts {
+		tags = append(tags, models.Tag{
+			Name: t,
+			Type: models.TagTypesAvail["podcast"],
+		})
+	}
+	for _, t := range mediaConf.Genres {
+		tags = append(tags, models.Tag{
+			Name: t,
+			Type: models.TagTypesAvail["genre"],
+		})
+	}
+	for _, t := range mediaConf.Languages {
+		tags = append(tags, models.Tag{
+			Name: t,
+			Type: models.TagTypesAvail["language"],
+		})
+	}
+	for _, t := range mediaConf.Moods {
+		tags = append(tags, models.Tag{
+			Name: t,
+			Type: models.TagTypesAvail["mood"],
+		})
 	}
 
 	media := models.Media{
 		Name:       mediaConf.Name,
 		Author:     mediaConf.Author,
 		Duration:   mediaConf.Duration,
+		Tags:       tags,
 		SourcePath: source,
 	}
 

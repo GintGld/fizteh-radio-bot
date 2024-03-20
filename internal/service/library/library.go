@@ -226,6 +226,12 @@ func (l *library) linkTrack(ctx context.Context, url string) (models.Media, erro
 	trackId := string(yaSong.ExpandString([]byte{}, "$track", url, yaSong.FindSubmatchIndex([]byte(url))))
 	albumId := string(yaSong.ExpandString([]byte{}, "$album", url, yaSong.FindSubmatchIndex([]byte(url))))
 
+	log.Debug(
+		"parsed values",
+		slog.String("trackId", trackId),
+		slog.String("albumId", albumId),
+	)
+
 	album, err := l.yaClient.Album(ctx, albumId)
 	if err != nil {
 		// TODO handle errors
@@ -277,7 +283,13 @@ func (l *library) linkPlaylist(ctx context.Context, url string) (models.Playlist
 	)
 
 	userName := string(yaPlaylist.ExpandString([]byte{}, "$user", url, yaPlaylist.FindSubmatchIndex([]byte(url))))
-	kind := string(yaSong.ExpandString([]byte{}, "$kind", url, yaSong.FindSubmatchIndex([]byte(url))))
+	kind := string(yaPlaylist.ExpandString([]byte{}, "$kind", url, yaSong.FindSubmatchIndex([]byte(url))))
+
+	log.Debug(
+		"parsed values",
+		slog.String("user", userName),
+		slog.String("kind", kind),
+	)
 
 	playlist, err := l.yaClient.Playlist(ctx, userName, kind)
 	if err != nil {

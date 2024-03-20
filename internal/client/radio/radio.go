@@ -21,7 +21,7 @@ import (
 // TODO handle error messages.
 
 type Client struct {
-	address   string
+	addr      string
 	c         *http.Client
 	jwtParser *jwt.Parser
 }
@@ -30,8 +30,11 @@ type HTTPError struct {
 	Err string `json:"error"`
 }
 
-func New() *Client {
+func New(
+	addr string,
+) *Client {
 	return &Client{
+		addr:      addr,
 		c:         http.DefaultClient,
 		jwtParser: new(jwt.Parser),
 	}
@@ -40,7 +43,7 @@ func New() *Client {
 func (c *Client) GetToken(ctx context.Context, user models.User) (jwt.Token, error) {
 	const op = "Client.GetToken"
 
-	url := fmt.Sprintf("https://%s/login", c.address)
+	url := fmt.Sprintf("https://%s/login", c.addr)
 
 	bodyReq, err := json.Marshal(map[string]string{
 		"login": user.Login,
@@ -96,7 +99,7 @@ func (c *Client) GetToken(ctx context.Context, user models.User) (jwt.Token, err
 func (c *Client) Search(ctx context.Context, token jwt.Token, filter models.MediaFilter) ([]models.Media, error) {
 	const op = "Client.Search"
 
-	url := fmt.Sprintf("https://%s/library/media", c.address)
+	url := fmt.Sprintf("https://%s/library/media", c.addr)
 
 	query := make([]string, 0, 3)
 	if filter.Name != "" {
@@ -158,7 +161,7 @@ func (c *Client) Search(ctx context.Context, token jwt.Token, filter models.Medi
 func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Media) error {
 	const op = "Client.NewMedia"
 
-	url := fmt.Sprintf("http://%s/library/media", c.address)
+	url := fmt.Sprintf("http://%s/library/media", c.addr)
 
 	jsonBytes, err := json.Marshal(map[string]any{
 		"name":   media.Name,
@@ -237,7 +240,7 @@ func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Med
 func (c *Client) NewTag(ctx context.Context, token jwt.Token, tag models.Tag) error {
 	const op = "Client.NewTag"
 
-	url := fmt.Sprintf("https://%s/library/tag", c.address)
+	url := fmt.Sprintf("https://%s/library/tag", c.addr)
 
 	bodyReq, err := json.Marshal(map[string]any{
 		"tag": tag,
@@ -291,7 +294,7 @@ func (c *Client) NewTag(ctx context.Context, token jwt.Token, tag models.Tag) er
 func (c *Client) NewSegment(ctx context.Context, token jwt.Token, segm models.Segment) error {
 	const op = "Client.NewSegment"
 
-	url := fmt.Sprintf("https://%s/schedule", c.address)
+	url := fmt.Sprintf("https://%s/schedule", c.addr)
 
 	bodyReq, err := json.Marshal(map[string]any{
 		"segment": segm,
@@ -345,7 +348,7 @@ func (c *Client) NewSegment(ctx context.Context, token jwt.Token, segm models.Se
 func (c *Client) GetSchedule(ctx context.Context, token jwt.Token) ([]models.Segment, error) {
 	const op = "Client.GetSchedule"
 
-	url := fmt.Sprintf("https://%s/schedule?start=%d", c.address, time.Now().Unix())
+	url := fmt.Sprintf("https://%s/schedule?start=%d", c.addr, time.Now().Unix())
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -392,7 +395,7 @@ func (c *Client) GetSchedule(ctx context.Context, token jwt.Token) ([]models.Seg
 func (c *Client) GetConfig(ctx context.Context, token jwt.Token) (models.AutoDJConfig, error) {
 	const op = "Client.GetConfig"
 
-	url := fmt.Sprintf("https://%s/dj/config", c.address)
+	url := fmt.Sprintf("https://%s/dj/config", c.addr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -433,7 +436,7 @@ func (c *Client) GetConfig(ctx context.Context, token jwt.Token) (models.AutoDJC
 func (c *Client) SetConfig(ctx context.Context, token jwt.Token, conf models.AutoDJConfig) error {
 	const op = "Client.GetConfig"
 
-	url := fmt.Sprintf("https://%s/dj/config", c.address)
+	url := fmt.Sprintf("https://%s/dj/config", c.addr)
 
 	bodyReq, err := json.Marshal(map[string]any{
 		"config": conf,
@@ -470,7 +473,7 @@ func (c *Client) SetConfig(ctx context.Context, token jwt.Token, conf models.Aut
 func (c *Client) StartAutoDJ(ctx context.Context, token jwt.Token) error {
 	const op = "Client.NewSegment"
 
-	url := fmt.Sprintf("https://%s/dj/start", c.address)
+	url := fmt.Sprintf("https://%s/dj/start", c.addr)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
 	if err != nil {
@@ -500,7 +503,7 @@ func (c *Client) StartAutoDJ(ctx context.Context, token jwt.Token) error {
 func (c *Client) StopAutoDJ(ctx context.Context, token jwt.Token) error {
 	const op = "Client.NewSegment"
 
-	url := fmt.Sprintf("https://%s/dj/stop", c.address)
+	url := fmt.Sprintf("https://%s/dj/stop", c.addr)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
 	if err != nil {
@@ -530,7 +533,7 @@ func (c *Client) StopAutoDJ(ctx context.Context, token jwt.Token) error {
 func (c *Client) IsAutoDJPlaying(ctx context.Context, token jwt.Token) (bool, error) {
 	const op = "Client.NewSegment"
 
-	url := fmt.Sprintf("https://%s/dj/status", c.address)
+	url := fmt.Sprintf("https://%s/dj/status", c.addr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

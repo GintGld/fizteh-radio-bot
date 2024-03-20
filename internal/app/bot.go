@@ -40,6 +40,7 @@ type App struct {
 func New(
 	log *slog.Logger,
 	tgToken string,
+	radioAddr string,
 	yaToken string,
 	webhookAddr string,
 	tmpDir string,
@@ -61,7 +62,9 @@ func New(
 		djClient   schSrv.AutoDJClient
 	)
 
-	radioClient := radioCl.New()
+	radioClient := radioCl.New(
+		radioAddr,
+	)
 	yandexClient := yandexCl.New(
 		yaToken,
 		tmpDir,

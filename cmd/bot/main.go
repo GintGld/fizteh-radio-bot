@@ -30,6 +30,7 @@ func main() {
 	app := app.New(
 		log,
 		getTelegramToken(),
+		cfg.RadioAddr,
 		getYandexToken(),
 		cfg.WebhookAddr,
 		cfg.TmpDir,

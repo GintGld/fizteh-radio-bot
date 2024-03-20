@@ -18,6 +18,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// TODO handle error messages.
+
 type Client struct {
 	address   string
 	c         *http.Client

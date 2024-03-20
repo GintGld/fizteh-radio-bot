@@ -62,7 +62,10 @@ func New(
 	)
 
 	radioClient := radioCl.New()
-	yandexClient := yandexCl.New(yaToken)
+	yandexClient := yandexCl.New(
+		yaToken,
+		tmpDir,
+	)
 
 	authClient = radioClient
 	libClient = radioClient

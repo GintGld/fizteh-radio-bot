@@ -4,11 +4,16 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"regexp"
+	"slices"
 	"strconv"
+	"time"
 
+	"github.com/GintGld/fizteh-radio-bot/internal/client"
 	"github.com/GintGld/fizteh-radio-bot/internal/lib/logger/sl"
 	"github.com/GintGld/fizteh-radio-bot/internal/models"
+	yamodels "github.com/GintGld/fizteh-radio-bot/internal/models/yandex"
 	"github.com/GintGld/fizteh-radio-bot/internal/service"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -17,8 +22,8 @@ import (
 // TODO: add support for spotify
 
 var (
-	yaSong     = regexp.MustCompile(`^https://music\.yandex\.(ru|com)/album/\d+/track/(?P<track>\d+)`)
-	yaPlaylist = regexp.MustCompile(`^https://music\.yandex\.(ru|com)/users/(?P<user>[^\/]+)/playlists/(?P<track>\d+)`)
+	yaSong     = regexp.MustCompile(`^https://music\.yandex\.(ru|com)/album/(?P<album>\d+)/track/(?P<track>\d+)`)
+	yaPlaylist = regexp.MustCompile(`^https://music\.yandex\.(ru|com)/users/(?P<user>[^\/]+)/playlists/(?P<kind>\d+)`)
 )
 
 type library struct {
@@ -39,8 +44,11 @@ type LibraryClient interface {
 }
 
 type YaClient interface {
-	DownloadTrack(ctx context.Context, id int) (models.Media, error)
-	DownloadPlaylist(ctx context.Context, user string, id int) (models.Playlist, error)
+	Album(ctx context.Context, id string) (yamodels.Album, error)
+	Playlist(ctx context.Context, user string, id string) (yamodels.Playlist, error)
+	DownloadInfo(ctx context.Context, id int) ([]yamodels.DownloadInfo, error)
+	DownloadTrack(ctx context.Context, url string) (string, error)
+	DirectLink(ctx context.Context, url string) (string, error)
 }
 
 func New(
@@ -147,25 +155,10 @@ func (l *library) LinkDownload(ctx context.Context, id int64, link string) (mode
 	if yaSong.MatchString(link) {
 		res.Type = models.ResSong
 
-		subStr := string(yaSong.ExpandString([]byte{}, "$track", link, yaSong.FindSubmatchIndex([]byte(link))))
-
-		trackId, err := strconv.Atoi(subStr)
+		media, err := l.linkTrack(ctx, link)
 		if err != nil {
 			log.Error(
-				"failed to convert id to int",
-				slog.String("link", link),
-				slog.String("expected id", subStr),
-				sl.Err(err),
-			)
-			return models.LinkDownloadResult{}, fmt.Errorf("%s: %w", op, err)
-		}
-
-		media, err := l.yaClient.DownloadTrack(ctx, trackId)
-		if err != nil {
-			// TODO handler errors
-			log.Error(
-				"failed to download track from yandex",
-				slog.Int("trackId", trackId),
+				"failed to handle track",
 				sl.Err(err),
 			)
 			return models.LinkDownloadResult{}, fmt.Errorf("%s: %w", op, err)
@@ -175,29 +168,12 @@ func (l *library) LinkDownload(ctx context.Context, id int64, link string) (mode
 	} else if yaPlaylist.MatchString(link) {
 		res.Type = models.ResPlaylist
 
-		userName := string(yaPlaylist.ExpandString([]byte{}, "$user", link, yaPlaylist.FindSubmatchIndex([]byte(link))))
-
-		subStr := string(yaSong.ExpandString([]byte{}, "$track", link, yaSong.FindSubmatchIndex([]byte(link))))
-		id, err := strconv.Atoi(subStr)
+		playlist, err := l.linkPlaylist(ctx, link)
 		if err != nil {
-			log.Error("failed to convert id to int",
-				slog.String("link", link),
-				slog.String("expected id", subStr),
-				sl.Err(err),
-			)
-			return models.LinkDownloadResult{}, fmt.Errorf("%s: %w", op, err)
-		}
-
-		playlist, err := l.yaClient.DownloadPlaylist(ctx, userName, id)
-		if err != nil {
-			// TODO handler errors
 			log.Error(
-				"failed to download track from yandex",
-				slog.String("user", userName),
-				slog.Int("playlist", id),
+				"failed to handle playlist",
 				sl.Err(err),
 			)
-			return models.LinkDownloadResult{}, fmt.Errorf("%s: %w", op, err)
 		}
 
 		res.Playlist = playlist
@@ -210,6 +186,172 @@ func (l *library) LinkDownload(ctx context.Context, id int64, link string) (mode
 	}
 
 	return res, nil
+}
+
+func (l *library) linkTrack(ctx context.Context, url string) (models.Media, error) {
+	const op = "library.linkTrack"
+
+	log := l.log.With(
+		slog.String("op", op),
+	)
+
+	trackId := string(yaSong.ExpandString([]byte{}, "$track", url, yaSong.FindSubmatchIndex([]byte(url))))
+	albumId := string(yaSong.ExpandString([]byte{}, "$album", url, yaSong.FindSubmatchIndex([]byte(url))))
+
+	album, err := l.yaClient.Album(ctx, albumId)
+	if err != nil {
+		// TODO handle errors
+		log.Error(
+			"failed to get album info",
+			slog.String("albumId", albumId),
+			sl.Err(err),
+		)
+		return models.Media{}, fmt.Errorf("%s: %w", op, err)
+	}
+	if album.Err != nil {
+		log.Error(
+			"failed to get album info",
+			slog.String("albumId", albumId),
+			slog.String("error", *album.Err),
+		)
+		return models.Media{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	index := slices.IndexFunc(album.Tracks, func(t yamodels.Track) bool {
+		return strconv.Itoa(t.Id) == trackId
+	})
+	track := album.Tracks[index]
+
+	filePath, err := l.downloadLinkTrack(ctx, track.Id)
+	if err != nil {
+		// TODO handler errors
+		log.Error(
+			"failed to download track from yandex",
+			slog.Int("trackId", track.Id),
+			sl.Err(err),
+		)
+		return models.Media{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return models.Media{
+		Name:       track.Title,
+		Author:     track.Artists[0].Name,
+		Duration:   track.Duration,
+		SourcePath: filePath,
+	}, nil
+}
+
+func (l *library) linkPlaylist(ctx context.Context, url string) (models.Playlist, error) {
+	const op = "library.linkPlaylist"
+
+	log := l.log.With(
+		slog.String("op", op),
+	)
+
+	userName := string(yaPlaylist.ExpandString([]byte{}, "$user", url, yaPlaylist.FindSubmatchIndex([]byte(url))))
+	kind := string(yaSong.ExpandString([]byte{}, "$kind", url, yaSong.FindSubmatchIndex([]byte(url))))
+
+	playlist, err := l.yaClient.Playlist(ctx, userName, kind)
+	if err != nil {
+		// TODO handler errors
+		log.Error(
+			"failed to download track from yandex",
+			slog.String("user", userName),
+			slog.String("kind", kind),
+			sl.Err(err),
+		)
+		return models.Playlist{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	values := make([]models.Media, 0, len(playlist.Tracks))
+	for _, track := range playlist.Tracks {
+		filePath, err := l.downloadLinkTrack(ctx, track.Id)
+		if err != nil {
+			log.Error(
+				"failed to download track",
+				slog.Int("trackId", track.Id),
+				sl.Err(err),
+			)
+			return models.Playlist{}, fmt.Errorf("%s: %w", op, err)
+		}
+
+		values = append(values, models.Media{
+			Name:       track.Title,
+			Author:     track.Artists[0].Name,
+			Duration:   track.Duration,
+			SourcePath: filePath,
+		})
+	}
+
+	return models.Playlist{
+		Name:   playlist.Title,
+		Values: values,
+	}, nil
+}
+
+// downloadLinkTrack downloads
+// track file and returns path to the file.
+func (l *library) downloadLinkTrack(ctx context.Context, id int) (string, error) {
+	const op = "library.downloadLinkTrack"
+
+	log := l.log.With(
+		slog.String("op", op),
+		slog.Int("tracakId", id),
+	)
+
+	downloadOptions, err := l.yaClient.DownloadInfo(ctx, id)
+	if err != nil {
+		log.Error(
+			"failed to get download options",
+			sl.Err(err),
+		)
+		return "", fmt.Errorf("%s: %w", op, err)
+	}
+
+	downloadOptions = slices.DeleteFunc(downloadOptions, func(di yamodels.DownloadInfo) bool {
+		return di.Codec != yamodels.CodecMP3
+	})
+
+	if len(downloadOptions) == 0 {
+		log.Warn(
+			"download info with mp3 codec not found",
+		)
+		return "", client.ErrTrackNotFound
+	}
+
+	preferred := slices.MaxFunc(downloadOptions, func(a, b yamodels.DownloadInfo) int {
+		return int(b.Bitrate - a.Bitrate)
+	})
+
+	directURL, err := l.yaClient.DirectLink(ctx, preferred.URL)
+	if err != nil {
+		log.Error(
+			"failed to get direct download link",
+			sl.Err(err),
+		)
+		return "", client.ErrTrackNotFound
+	}
+
+	filePath, err := l.yaClient.DownloadTrack(ctx, directURL)
+	if err != nil {
+		log.Error(
+			"failed to download track",
+			sl.Err(err),
+		)
+		return "", client.ErrTrackNotFound
+	}
+
+	time.AfterFunc(time.Hour, func() {
+		if err := os.Remove(filePath); err != nil {
+			l.log.Error(
+				"failed to delete file",
+				slog.String("path", filePath),
+				sl.Err(err),
+			)
+		}
+	})
+
+	return filePath, nil
 }
 
 func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownloadResult) error {
@@ -235,9 +377,9 @@ func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownl
 	case models.ResPlaylist:
 		if err := l.libClient.NewTag(ctx, token, models.Tag{
 			Name: res.Playlist.Name,
-			Type: models.TagTypesAvail["playlists"], // tag type "playlist"
+			Type: models.TagTypesAvail["playlists"],
 		}); err != nil {
-			// TODO: handle "tag already exist" tag.
+			// TODO: handle "tag already exist".
 			log.Error(
 				"failed to create tag",
 				slog.String("name", res.Playlist.Name),

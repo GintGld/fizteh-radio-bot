@@ -9,13 +9,10 @@ require (
 	github.com/go-telegram/ui v0.3.1
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/ilyakaznacheev/cleanenv v1.5.0
-	github.com/oapi-codegen/runtime v1.1.1
 )
 
 require (
 	github.com/BurntSushi/toml v1.3.2 // indirect
-	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/google/uuid v1.5.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

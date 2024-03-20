@@ -86,7 +86,7 @@ func (c *Client) GetToken(ctx context.Context, user models.User) (jwt.Token, err
 	case 400:
 		var e HTTPError
 		if err := json.Unmarshal(bodyResp, &e); err != nil {
-			return jwt.Token{}, fmt.Errorf("%s: %w", op, err)
+			return jwt.Token{}, fmt.Errorf("%s: %s", op, string(bodyResp))
 		}
 		return jwt.Token{}, fmt.Errorf("%s: returned error %s", op, e.Err)
 	case 500:
@@ -146,7 +146,7 @@ func (c *Client) Search(ctx context.Context, token jwt.Token, filter models.Medi
 	case 400:
 		var e HTTPError
 		if err := json.Unmarshal(bodyResp, &e); err != nil {
-			return []models.Media{}, fmt.Errorf("%s: %w", op, err)
+			return []models.Media{}, fmt.Errorf("%s: %s", op, string(bodyResp))
 		}
 		return []models.Media{}, fmt.Errorf("%s: returned error %s", op, e.Err)
 	case 401:
@@ -161,7 +161,7 @@ func (c *Client) Search(ctx context.Context, token jwt.Token, filter models.Medi
 func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Media) error {
 	const op = "Client.NewMedia"
 
-	url := fmt.Sprintf("http://%s/library/media", c.addr)
+	url := fmt.Sprintf("%s/library/media", c.addr)
 
 	jsonBytes, err := json.Marshal(map[string]any{
 		"name":   media.Name,
@@ -225,7 +225,7 @@ func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Med
 	case 400:
 		var e HTTPError
 		if err := json.Unmarshal(bodyResp, &e); err != nil {
-			return fmt.Errorf("%s: %w", op, err)
+			return fmt.Errorf("%s: %s", op, string(bodyResp))
 		}
 		return fmt.Errorf("%s: returned error %s", op, e.Err)
 	case 401:
@@ -237,7 +237,53 @@ func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Med
 	}
 }
 
-func (c *Client) NewTag(ctx context.Context, token jwt.Token, tag models.Tag) error {
+func (c *Client) AllTags(ctx context.Context, token jwt.Token) (models.TagList, error) {
+	const op = "Client.AllTags"
+
+	url := fmt.Sprintf("%s/library/tag", c.addr)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return models.TagList{}, fmt.Errorf("%s: %w", op, err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token.Raw)
+
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return models.TagList{}, fmt.Errorf("%s: %w", op, err)
+	}
+	defer resp.Body.Close()
+
+	bodyResp, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return models.TagList{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		var resp struct {
+			Tags models.TagList `json:"tags"`
+		}
+		if err := json.Unmarshal(bodyResp, &resp); err != nil {
+			return models.TagList{}, fmt.Errorf("%s: %w", op, err)
+		}
+		return resp.Tags, nil
+	case 400:
+		var e HTTPError
+		if err := json.Unmarshal(bodyResp, &e); err != nil {
+			return models.TagList{}, fmt.Errorf("%s: %s", op, string(bodyResp))
+		}
+		return models.TagList{}, fmt.Errorf("%s: returned error %s", op, e.Err)
+	case 401:
+		return models.TagList{}, client.ErrNotAuthorized
+	case 500:
+		return models.TagList{}, client.ErrInternalServerError
+	default:
+		return models.TagList{}, fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+	}
+}
+
+func (c *Client) NewTag(ctx context.Context, token jwt.Token, tag models.Tag) (int64, error) {
 	const op = "Client.NewTag"
 
 	url := fmt.Sprintf("%s/library/tag", c.addr)
@@ -246,25 +292,25 @@ func (c *Client) NewTag(ctx context.Context, token jwt.Token, tag models.Tag) er
 		"tag": tag,
 	})
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(bodyReq))
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token.Raw)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.c.Do(req)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	defer resp.Body.Close()
 
 	bodyResp, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	switch resp.StatusCode {
@@ -273,21 +319,21 @@ func (c *Client) NewTag(ctx context.Context, token jwt.Token, tag models.Tag) er
 			Id int64 `json:"id"`
 		}
 		if err := json.Unmarshal(bodyResp, &resp); err != nil {
-			return fmt.Errorf("%s: %w", op, err)
+			return 0, fmt.Errorf("%s: %w", op, err)
 		}
-		return nil
+		return resp.Id, nil
 	case 400:
 		var e HTTPError
 		if err := json.Unmarshal(bodyResp, &e); err != nil {
-			return fmt.Errorf("%s: %w", op, err)
+			return 0, fmt.Errorf("%s: %s", op, string(bodyResp))
 		}
-		return fmt.Errorf("%s: returned error %s", op, e.Err)
+		return 0, fmt.Errorf("%s: returned error %s", op, e.Err)
 	case 401:
-		return client.ErrNotAuthorized
+		return 0, client.ErrNotAuthorized
 	case 500:
-		return client.ErrInternalServerError
+		return 0, client.ErrInternalServerError
 	default:
-		return fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+		return 0, fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
 	}
 }
 
@@ -297,7 +343,13 @@ func (c *Client) NewSegment(ctx context.Context, token jwt.Token, segm models.Se
 	url := fmt.Sprintf("%s/schedule", c.addr)
 
 	bodyReq, err := json.Marshal(map[string]any{
-		"segment": segm,
+		"segment": map[string]any{
+			"mediaID":   segm.Media.ID,
+			"Start":     segm.Start,
+			"BeginCut":  segm.BeginCut,
+			"StopCut":   segm.StopCut,
+			"Protected": segm.Protected,
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
@@ -333,7 +385,7 @@ func (c *Client) NewSegment(ctx context.Context, token jwt.Token, segm models.Se
 	case 400:
 		var e HTTPError
 		if err := json.Unmarshal(bodyResp, &e); err != nil {
-			return fmt.Errorf("%s: %w", op, err)
+			return fmt.Errorf("%s: %s", op, string(bodyResp))
 		}
 		return fmt.Errorf("%s: returned error %s", op, e.Err)
 	case 401:
@@ -380,7 +432,7 @@ func (c *Client) GetSchedule(ctx context.Context, token jwt.Token) ([]models.Seg
 	case 400:
 		var e HTTPError
 		if err := json.Unmarshal(bodyResp, &e); err != nil {
-			return []models.Segment{}, fmt.Errorf("%s: %w", op, err)
+			return []models.Segment{}, fmt.Errorf("%s: %s", op, string(bodyResp))
 		}
 		return []models.Segment{}, fmt.Errorf("%s: returned error %s", op, e.Err)
 	case 401:

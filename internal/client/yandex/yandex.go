@@ -132,10 +132,10 @@ func (c *Client) Playlist(ctx context.Context, user string, id string) (yamodels
 	}
 }
 
-func (c *Client) DownloadInfo(ctx context.Context, id int) ([]yamodels.DownloadInfo, error) {
+func (c *Client) DownloadInfo(ctx context.Context, id string) ([]yamodels.DownloadInfo, error) {
 	const op = "Client.DownloadTrack"
 
-	url := fmt.Sprintf("https://%s/tracks/%d/download-info", proxyAddr, id)
+	url := fmt.Sprintf("https://%s/tracks/%s/download-info", proxyAddr, id)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

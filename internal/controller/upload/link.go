@@ -28,7 +28,7 @@ func (u *upload) linkUpload(ctx context.Context, b *bot.Bot, update *models.Upda
 		ChatID:      chatId,
 		MessageID:   u.msgIdStorage.Get(chatId),
 		Text:        ctr.LibUploadAskLink,
-		ReplyMarkup: u.getSettingDataMarkup(),
+		ReplyMarkup: u.cancelMarkup(),
 	}); err != nil {
 		u.onError(fmt.Errorf("%s: %w", op, err))
 	}
@@ -77,9 +77,10 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 	switch res.Type {
 	case localModels.ResSong:
 		conf := localModels.MediaConfig{
-			Name:     res.Media.Name,
-			Author:   res.Media.Author,
-			Duration: res.Media.Duration,
+			Name:       res.Media.Name,
+			Author:     res.Media.Author,
+			Duration:   res.Media.Duration,
+			SourcePath: res.Media.SourcePath,
 		}
 
 		u.mediaConfigStorage.Set(chatId, conf)
@@ -94,6 +95,8 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 			u.onError(fmt.Errorf("%s: %w", op, err))
 		}
 	case localModels.ResPlaylist:
+		u.isPlaylistStorage.Set(chatId, true)
+
 		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:      chatId,
 			MessageID:   u.msgIdStorage.Get(chatId),

@@ -24,6 +24,7 @@ const (
 	cmdUpdate  ctr.Command = "update"
 	cmdGetData ctr.Command = "get-data"
 	cmdFormat  ctr.Command = "format"
+	cmdReset   ctr.Command = "reset"
 
 	// media slider
 	cmdUpdateSlide ctr.Command = "update-slide"
@@ -77,6 +78,17 @@ const (
 func (sOpt searchFormat) String() string {
 	switch sOpt {
 	case formatSong:
+		return "song"
+	case formatPodcast:
+		return "podcast"
+	default:
+		return ""
+	}
+}
+
+func (sOpt searchFormat) Repr() string {
+	switch sOpt {
+	case formatSong:
 		return "песня"
 	case formatPodcast:
 		return "подкаст"
@@ -118,6 +130,7 @@ func Register(
 	// option updates
 	router.RegisterCallbackPrefix(cmdUpdate, s.update)
 	router.RegisterHandler(cmdGetData, s.getData)
+	router.RegisterCallback(cmdReset, s.reset)
 
 	// media slider
 	router.RegisterCallbackPrefix(cmdUpdateSlide, s.updateSlide)
@@ -166,6 +179,26 @@ func (s *search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 	}
 
 	s.msgIdStorage.Set(chatId, msg.ID)
+}
+
+func (s *search) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "search.submit"
+
+	s.callbackAnswer(ctx, b, update.CallbackQuery)
+
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
+
+	s.searchStorage.Set(chatId, searchOption{})
+
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:      chatId,
+		MessageID:   s.msgIdStorage.Get(chatId),
+		Text:        s.filterRepr(searchOption{}),
+		ReplyMarkup: s.mainMenuMarkup(searchOption{}),
+		ParseMode:   models.ParseModeHTML,
+	}); err != nil {
+		s.onError(fmt.Errorf("%s: %w", op, err))
+	}
 }
 
 // submit gets text to search,
@@ -258,7 +291,7 @@ func (s *search) filterRepr(opt searchOption) string {
 	if opt.nameAuthor != "" {
 		b.WriteString(fmt.Sprintf("<b>Название/автор:</b> %s\n", opt.nameAuthor))
 	}
-	b.WriteString(fmt.Sprintf("<b>Формат:</b> %s\n", opt.format.String()))
+	b.WriteString(fmt.Sprintf("<b>Формат:</b> %s\n", opt.format.Repr()))
 	if len(opt.playlists) > 0 {
 		b.WriteString(fmt.Sprintf("<b>Плейлисты:</b> %s\n", strings.Join(opt.playlists, ", ")))
 	}
@@ -289,6 +322,7 @@ func (s *search) mediaRepr(media localModels.Media) string {
 	b.WriteString(fmt.Sprintf("<b>Длительность:</b> %s\n", media.Duration.Round(time.Second).String()))
 
 	var podcasts, playlists, genres, languages, moods []string
+	var format string
 	for _, tag := range media.Tags {
 		switch tag.Type.Name {
 		case "podcast":
@@ -301,8 +335,18 @@ func (s *search) mediaRepr(media localModels.Media) string {
 			languages = append(languages, tag.Name)
 		case "mood":
 			moods = append(moods, tag.Name)
+		case "format":
+			format = tag.Name
 		}
 	}
+	switch format {
+	case "song":
+		format = "песня"
+	case "podcast":
+		format = "подкаст"
+	}
+
+	b.WriteString(fmt.Sprintf("<b>Формат:</b> %s\n", format))
 	if len(podcasts) > 0 {
 		b.WriteString(fmt.Sprintf("<b>Подкасты:</b> %s\n", strings.Join(podcasts, ", ")))
 	}

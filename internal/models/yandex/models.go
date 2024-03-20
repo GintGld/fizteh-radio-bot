@@ -21,7 +21,7 @@ var (
 type DownloadInfo struct {
 	Codec   CodecType `json:"codec"`
 	Gain    bool      `json:"gain"`
-	Preview string    `json:"preview"`
+	Preview bool      `json:"preview"`
 	URL     string    `json:"downloadInfoUrl"`
 	Direct  bool      `json:"direct"`
 	Bitrate float64   `json:"bitrateInKbps"`
@@ -78,12 +78,12 @@ const (
 )
 
 type Artist struct {
-	Id   string `json:"id"`
+	Id   int    `json:"id"`
 	Name string `json:"name"`
 }
 
 type Track struct {
-	Id       int
+	Id       string
 	Title    string
 	Duration time.Duration
 	Artists  []Artist
@@ -95,6 +95,8 @@ type YaError struct {
 		Message string `json:"message"`
 	} `json:"error"`
 }
+
+type Id string
 
 func (p *Playlist) UnmarshalJSON(data []byte) error {
 	var tmp playlistResponse
@@ -180,7 +182,7 @@ type albumResponse struct {
 }
 
 type trackResponse struct {
-	Id         int      `json:"id"`
+	Id         string   `json:"id"`
 	Title      string   `json:"title"`
 	DurationMs int      `json:"durationMs"`
 	Artists    []Artist `json:"artists"`

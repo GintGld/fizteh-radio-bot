@@ -107,8 +107,6 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 		u.deleteFile(filepath)
 	})
 
-	u.fileStorage.Set(chatId, filepath)
-
 	author, name, found := strings.Cut(update.Message.Audio.FileName, " - ")
 	if !found {
 		author = ""
@@ -116,9 +114,10 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 	}
 
 	conf := localModels.MediaConfig{
-		Name:     name,
-		Author:   author,
-		Duration: getMediaDuration(filepath),
+		Name:       name,
+		Author:     author,
+		Duration:   getMediaDuration(filepath),
+		SourcePath: filepath,
 	}
 
 	u.mediaConfigStorage.Set(chatId, conf)

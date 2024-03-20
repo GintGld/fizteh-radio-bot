@@ -27,15 +27,16 @@ type Playlist struct {
 }
 
 type MediaConfig struct {
-	Name      string
-	Author    string
-	Duration  time.Duration
-	Format    MediaFormat
-	Playlists []string
-	Podcasts  []string
-	Genres    []string
-	Languages []string
-	Moods     []string
+	Name       string
+	Author     string
+	Duration   time.Duration
+	Format     MediaFormat
+	Playlists  []string
+	Podcasts   []string
+	Genres     []string
+	Languages  []string
+	Moods      []string
+	SourcePath string
 }
 
 type MediaFormat int

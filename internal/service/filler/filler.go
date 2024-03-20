@@ -39,7 +39,7 @@ func (f *Filler) Search(_ context.Context, _ int64, filter models.MediaFilter) (
 	return res, nil
 }
 
-func (f *Filler) NewMedia(_ context.Context, _ int64, _ models.MediaConfig, _ string) error {
+func (f *Filler) NewMedia(_ context.Context, _ int64, _ models.MediaConfig) error {
 	return nil
 }
 

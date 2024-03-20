@@ -66,7 +66,7 @@ func (u *upload) mediaConfMarkup(conf localModels.MediaConfig) models.InlineKeyb
 				{Text: butMsgReset, CallbackData: u.router.PathPrefixState(cmdSettings, "reset")},
 			},
 			{
-				{Text: butMsgSubmit, CallbackData: u.router.PathPrefixState(cmdSubmit, "manual")},
+				{Text: butMsgSubmit, CallbackData: u.router.Path(cmdSubmit)},
 				{Text: butMsgCancel, CallbackData: u.router.Path(cmdCancel)},
 			},
 		},
@@ -83,11 +83,21 @@ func (u *upload) getSettingDataMarkup() models.InlineKeyboardMarkup {
 	}
 }
 
+func (u *upload) cancelMarkup() models.InlineKeyboardMarkup {
+	return models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{
+				{Text: butMsgCancel, CallbackData: u.router.Path(cmdCancel)},
+			},
+		},
+	}
+}
+
 func (u *upload) playlistMarkup() models.InlineKeyboardMarkup {
 	return models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{
-				{Text: butMsgSubmit, CallbackData: u.router.PathPrefixState(cmdSubmit, "link")},
+				{Text: butMsgSubmit, CallbackData: u.router.Path(cmdSubmit)},
 				{Text: butMsgCancel, CallbackData: u.router.Path(cmdCancel)},
 			},
 		},

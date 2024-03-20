@@ -43,7 +43,7 @@ type upload struct {
 	onError     bot.ErrorsHandler
 	tmpDir      string
 
-	fileStorage            storage.Storage[string]
+	isPlaylistStorage      storage.Storage[bool]
 	mediaConfigStorage     storage.Storage[localModels.MediaConfig]
 	settingTargetStorage   storage.Storage[string]
 	linkDownloadResStorage storage.Storage[localModels.LinkDownloadResult]
@@ -55,7 +55,7 @@ type Auth interface {
 }
 
 type MediaUpload interface {
-	NewMedia(ctx context.Context, id int64, media localModels.MediaConfig, source string) error
+	NewMedia(ctx context.Context, id int64, media localModels.MediaConfig) error
 	LinkDownload(ctx context.Context, id int64, link string) (localModels.LinkDownloadResult, error)
 	LinkUpload(ctx context.Context, id int64, res localModels.LinkDownloadResult) error
 }
@@ -76,7 +76,7 @@ func Register(
 		onError:     onError,
 		tmpDir:      tmpDir,
 
-		fileStorage:            storage.New[string](),
+		isPlaylistStorage:      storage.New[bool](),
 		mediaConfigStorage:     storage.New[localModels.MediaConfig](),
 		settingTargetStorage:   storage.New[string](),
 		linkDownloadResStorage: storage.New[localModels.LinkDownloadResult](),
@@ -97,7 +97,7 @@ func Register(
 	router.RegisterCallbackPrefix(cmdSettings, u.updateSettings)
 	router.RegisterHandler(cmdGetData, u.getSettingNewData)
 	router.RegisterCallback(cmdCancelSetting, u.cancelSubTask)
-	router.RegisterCallbackPrefix(cmdSubmit, u.submit)
+	router.RegisterCallback(cmdSubmit, u.submit)
 	router.RegisterCallback(cmdCancel, u.returnToMainMenu)
 
 	// filler
@@ -139,11 +139,11 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 
 	var err error
 
-	switch u.router.GetState(update.CallbackQuery.Data) {
-	case "manual":
-		err = u.mediaUpload.NewMedia(ctx, chatId, u.mediaConfigStorage.Get(chatId), u.fileStorage.Get(chatId))
-	case "link":
+	switch u.isPlaylistStorage.Get(chatId) {
+	case true:
 		err = u.mediaUpload.LinkUpload(ctx, chatId, u.linkDownloadResStorage.Get(chatId))
+	case false:
+		err = u.mediaUpload.NewMedia(ctx, chatId, u.mediaConfigStorage.Get(chatId))
 	}
 
 	if err != nil {
@@ -157,7 +157,7 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 		return
 	}
 
-	u.fileStorage.Del(chatId)
+	u.isPlaylistStorage.Del(chatId)
 	u.linkDownloadResStorage.Del(chatId)
 	u.mediaConfigStorage.Del(chatId)
 	u.settingTargetStorage.Del(chatId)
@@ -178,7 +178,6 @@ func (u *upload) returnToMainMenu(ctx context.Context, b *bot.Bot, update *model
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
-	u.fileStorage.Del(chatId)
 	u.linkDownloadResStorage.Del(chatId)
 	u.mediaConfigStorage.Del(chatId)
 	u.settingTargetStorage.Del(chatId)

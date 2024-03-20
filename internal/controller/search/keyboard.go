@@ -15,6 +15,7 @@ const (
 	butMsgGenre        = "Жанры"
 	butMsgLanguage     = "Язык"
 	butMsgMood         = "Настроение"
+	butMsgReset        = "Сбросить"
 
 	butMsgAddToSch = "Запланировать"
 	butMsgEdit     = "Редактировать"
@@ -48,6 +49,7 @@ func (s *search) mainMenuMarkup(opt searchOption) models.InlineKeyboardMarkup {
 			},
 			{
 				{Text: butMsgSubmit, CallbackData: s.router.Path(cmdSubmit)},
+				{Text: butMsgReset, CallbackData: s.router.Path(cmdReset)},
 			},
 		},
 	}

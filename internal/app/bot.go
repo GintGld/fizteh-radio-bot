@@ -193,6 +193,8 @@ func defaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 		}); err != nil {
 			errorHandler(err)
 		}
+
+		fmt.Println("unexpected message")
 	}
 
 	if update.CallbackQuery != nil {
@@ -213,6 +215,8 @@ func defaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 		}); err != nil {
 			errorHandler(err)
 		}
+
+		fmt.Printf("unexpected callback %s\n", update.CallbackQuery.Data)
 	}
 }
 

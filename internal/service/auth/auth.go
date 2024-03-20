@@ -84,7 +84,7 @@ func (a *auth) Login(ctx context.Context, id int64, login, pass string) error {
 
 	a.updateToken(a.updCtx, id)
 
-	panic("not implemented")
+	return nil
 }
 
 // Token returns user's token

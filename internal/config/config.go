@@ -13,7 +13,7 @@ type Config struct {
 	RadioAddr   string `yaml:"radio-addr" env-required:"true"`
 	WebhookAddr string `yaml:"webhook-addr" env-default:"8443"`
 	TmpDir      string `yaml:"tmp-dir" env-default:"tmp"`
-	UseFiller   bool   `yaml:"use-filler" env-default:"true"`
+	UseFiller   bool   `yaml:"use-filler" env-default:"false"`
 }
 
 func MustLoad() *Config {

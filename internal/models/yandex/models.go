@@ -89,6 +89,13 @@ type Track struct {
 	Artists  []Artist
 }
 
+type YaError struct {
+	Err struct {
+		Name    string `json:"name"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
 func (p *Playlist) UnmarshalJSON(data []byte) error {
 	var tmp playlistResponse
 

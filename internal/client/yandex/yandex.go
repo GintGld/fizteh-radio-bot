@@ -60,19 +60,26 @@ func (c *Client) Album(ctx context.Context, id string) (yamodels.Album, error) {
 
 	switch resp.StatusCode {
 	case 200:
-		var resp struct {
+		var res struct {
 			Res yamodels.Album `json:"result"`
 		}
-		if err := json.Unmarshal(bodyResp, &resp); err != nil {
+		if err := json.Unmarshal(bodyResp, &res); err != nil {
 			return yamodels.Album{}, fmt.Errorf("%s: %w", op, err)
 		}
-		return resp.Res, nil
+		return res.Res, nil
+	case 400:
+		var res yamodels.YaError
+		if err := json.Unmarshal(bodyResp, &res); err != nil {
+			fmt.Printf("%s\n", err.Error())
+			return yamodels.Album{}, fmt.Errorf("%s: status 400. Resp body: %s", op, string(bodyResp))
+		}
+		return yamodels.Album{}, fmt.Errorf("%s: status 400. Error result %+v", op, res)
 	case 401:
 		return yamodels.Album{}, client.ErrNotAuthorized
 	case 500:
 		return yamodels.Album{}, client.ErrInternalServerError
 	default:
-		return yamodels.Album{}, fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+		return yamodels.Album{}, fmt.Errorf("%s: unknown return status %d. Resp body: %s", op, resp.StatusCode, string(bodyResp))
 	}
 }
 
@@ -109,12 +116,19 @@ func (c *Client) Playlist(ctx context.Context, user string, id string) (yamodels
 			return yamodels.Playlist{}, fmt.Errorf("%s: %w", op, err)
 		}
 		return resp.Res, nil
+	case 400:
+		var res yamodels.YaError
+		if err := json.Unmarshal(bodyResp, &res); err != nil {
+			fmt.Printf("%s\n", err.Error())
+			return yamodels.Playlist{}, fmt.Errorf("%s: status 400. Resp body: %s", op, string(bodyResp))
+		}
+		return yamodels.Playlist{}, fmt.Errorf("%s: status 400. Error result %+v", op, res)
 	case 401:
 		return yamodels.Playlist{}, client.ErrNotAuthorized
 	case 500:
 		return yamodels.Playlist{}, client.ErrInternalServerError
 	default:
-		return yamodels.Playlist{}, fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+		return yamodels.Playlist{}, fmt.Errorf("%s: unknown return status %d. Resp body: %s", op, resp.StatusCode, string(bodyResp))
 	}
 }
 
@@ -150,12 +164,19 @@ func (c *Client) DownloadInfo(ctx context.Context, id int) ([]yamodels.DownloadI
 			return []yamodels.DownloadInfo{}, fmt.Errorf("%s: %w", op, err)
 		}
 		return resp.Res, nil
+	case 400:
+		var res yamodels.YaError
+		if err := json.Unmarshal(bodyResp, &res); err != nil {
+			fmt.Printf("%s\n", err.Error())
+			return []yamodels.DownloadInfo{}, fmt.Errorf("%s: status 400. Resp body: %s", op, string(bodyResp))
+		}
+		return []yamodels.DownloadInfo{}, fmt.Errorf("%s: status 400. Error result %+v", op, res)
 	case 401:
 		return []yamodels.DownloadInfo{}, client.ErrNotAuthorized
 	case 500:
 		return []yamodels.DownloadInfo{}, client.ErrInternalServerError
 	default:
-		return []yamodels.DownloadInfo{}, fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+		return []yamodels.DownloadInfo{}, fmt.Errorf("%s: unknown return status %d. Resp body: %s", op, resp.StatusCode, string(bodyResp))
 	}
 }
 
@@ -187,12 +208,19 @@ func (c *Client) DirectLink(ctx context.Context, url string) (string, error) {
 			return "", fmt.Errorf("%s: %w", op, err)
 		}
 		return resp.BuildLink(), nil
+	case 400:
+		var res yamodels.YaError
+		if err := json.Unmarshal(bodyResp, &res); err != nil {
+			fmt.Printf("%s\n", err.Error())
+			return "", fmt.Errorf("%s: status 400. Resp body: %s", op, string(bodyResp))
+		}
+		return "", fmt.Errorf("%s: status 400. Error result %+v", op, res)
 	case 401:
 		return "", client.ErrNotAuthorized
 	case 500:
 		return "", client.ErrInternalServerError
 	default:
-		return "", fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+		return "", fmt.Errorf("%s: unknown return status %d. Resp body: %s", op, resp.StatusCode, string(bodyResp))
 	}
 }
 

@@ -27,7 +27,7 @@ jobs:
           ssh -i deploy_key.pem -o StrictHostKeyChecking=no -p ${{ env.PORT }} ${{ env.HOST }} \
           "mkdir -p ${{ env.DEPLOY_DIR }} ${{ env.DEPLOY_DIR }}/config && \
           sudo rm -f ${{ env.ENV_FILE_PATH }} ${{ env.COMPOSE_ENV }} && \
-          echo "CONFIG_PATH=/radio/config/prod.yaml" >> ${{ env.ENV_FILE_PATH }} && \
+          echo "CONFIG_PATH=/bot/config/prod.yaml" >> ${{ env.ENV_FILE_PATH }} && \
           echo "TG_TOKEN=${{ secrets.TG_TOKEN }}" >> ${{ env.ENV_FILE_PATH }} && \
           echo "YA_TOKEN=${{ secrets.YA_TOKEN }}" >> ${{ env.ENV_FILE_PATH }}"
       - name: Send config files
@@ -42,6 +42,6 @@ jobs:
         run: |
           ssh -i deploy_key.pem -o StrictHostKeyChecking=no -p ${{ env.PORT }} ${{ env.HOST }} \
           'cd ${{ env.DEPLOY_DIR }} && \
-          sudo docker image rm gingld/fizteh-radio-bot && \
           sudo docker compose --env-file ${{ env.COMPOSE_ENV }} stop && \
+          sudo docker image rm -f gingld/fizteh-radio-bot && \
           sudo docker compose --env-file ${{ env.COMPOSE_ENV }} up -d'

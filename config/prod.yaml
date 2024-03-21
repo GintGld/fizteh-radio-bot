@@ -1,0 +1,12 @@
+env: local
+log:
+  srv:
+    level: debug
+    path: /.log/srv.log
+    pretty: false
+  tg:
+    level: debug
+    path: /.log/tg.log
+    pretty: false
+tmp-dir: /bot/tmp
+radio-addr: http://localhost:8082

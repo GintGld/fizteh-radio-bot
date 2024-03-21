@@ -201,6 +201,8 @@ func (s *schedule) nullHandler(ctx context.Context, b *bot.Bot, update *models.U
 func (s *schedule) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
 	const op = "schedule.callbackAnswer"
 
+	chatId := callbackQuery.Message.Message.Chat.ID
+
 	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: callbackQuery.ID,
 	})

@@ -78,7 +78,7 @@ const (
 	LibUploadErrInvalidLink  = "Не могу распознать твою ссылку"
 
 	// "/sch" command
-	SchMainMenuMessage = "Можем посмотреть расписание или настроить авто диджея."
+	SchEmptySchedule = "Расписание пока пусто"
 
 	// "/sch/autodj"
 	SchAutoDJAskGenre    = "Введи через запятую жанры."

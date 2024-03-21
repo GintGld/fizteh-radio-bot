@@ -237,6 +237,53 @@ func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Med
 	}
 }
 
+func (c *Client) Media(ctx context.Context, token jwt.Token, id int64) (models.Media, error) {
+	const op = "Client.Media"
+
+	url := fmt.Sprintf("%s/library/media/%d", c.addr, id)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return models.Media{}, fmt.Errorf("%s: %w", op, err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token.Raw)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return models.Media{}, fmt.Errorf("%s: %w", op, err)
+	}
+	defer resp.Body.Close()
+
+	bodyResp, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return models.Media{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		var resp struct {
+			Media models.Media `json:"media"`
+		}
+		if err := json.Unmarshal(bodyResp, &resp); err != nil {
+			return models.Media{}, fmt.Errorf("%s: %w", op, err)
+		}
+		return resp.Media, nil
+	case 400:
+		var e HTTPError
+		if err := json.Unmarshal(bodyResp, &e); err != nil {
+			return models.Media{}, fmt.Errorf("%s: %s", op, string(bodyResp))
+		}
+		return models.Media{}, fmt.Errorf("%s: returned error %s", op, e.Err)
+	case 401:
+		return models.Media{}, client.ErrNotAuthorized
+	case 500:
+		return models.Media{}, client.ErrInternalServerError
+	default:
+		return models.Media{}, fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+	}
+}
+
 func (c *Client) AllTags(ctx context.Context, token jwt.Token) (models.TagList, error) {
 	const op = "Client.AllTags"
 

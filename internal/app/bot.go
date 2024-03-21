@@ -60,11 +60,12 @@ func New(
 
 	// Clients
 	var (
-		authClient authSrv.AuthClient
-		libClient  libSrv.LibraryClient
-		yaClient   libSrv.YaClient
-		schClient  schSrv.ScheduleClient
-		djClient   schSrv.AutoDJClient
+		authClient        authSrv.AuthClient
+		libClient         libSrv.LibraryClient
+		libGetMediaClient schSrv.LibraryClient
+		yaClient          libSrv.YaClient
+		schClient         schSrv.ScheduleClient
+		djClient          schSrv.AutoDJClient
 	)
 
 	radioClient := radioCl.New(
@@ -77,6 +78,7 @@ func New(
 
 	authClient = radioClient
 	libClient = radioClient
+	libGetMediaClient = radioClient
 	yaClient = yandexClient
 	schClient = radioClient
 	djClient = radioClient
@@ -114,6 +116,7 @@ func New(
 		s := schSrv.New(
 			logSrv,
 			a,
+			libGetMediaClient,
 			schClient,
 			djClient,
 		)

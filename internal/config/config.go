@@ -2,6 +2,7 @@ package config
 
 import (
 	"flag"
+	"log/slog"
 	"os"
 
 	"github.com/ilyakaznacheev/cleanenv"
@@ -17,8 +18,14 @@ type Config struct {
 }
 
 type Log struct {
-	SrvPath string `yaml:"srv-path" env-default:""`
-	TgPath  string `yaml:"tg-path" env-default:""`
+	Srv Logger `yaml:"srv" env-default:""`
+	Tg  Logger `yaml:"tg" env-default:""`
+}
+
+type Logger struct {
+	Level  slog.Level `yaml:"level" env-default:"info"`
+	Path   string     `yaml:"path" env-default:""`
+	Pretty bool       `yaml:"pretty" env-default:"false"`
 }
 
 func MustLoad() *Config {

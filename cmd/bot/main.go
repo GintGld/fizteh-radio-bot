@@ -13,16 +13,11 @@ import (
 	"github.com/GintGld/fizteh-radio-bot/internal/lib/logger/slogpretty"
 )
 
-const (
-	envLocal = "local"
-	envProd  = "prod"
-)
-
 func main() {
 	cfg := config.MustLoad()
 
-	logSrv := setupLogger(cfg.Env, cfg.Log.SrvPath)
-	logTg := setupLogger(cfg.Env, cfg.Log.TgPath)
+	logSrv := setupLogger(cfg.Log.Srv.Pretty, cfg.Log.Srv.Level, cfg.Log.Srv.Path)
+	logTg := setupLogger(cfg.Log.Tg.Pretty, cfg.Log.Tg.Level, cfg.Log.Tg.Path)
 
 	logSrv.Info("start bot", slog.String("env", cfg.Env))
 	logSrv.Debug("debug messages are enabled")
@@ -53,43 +48,41 @@ func main() {
 	logSrv.Info("Gracefully stopped")
 }
 
-func setupLogger(env, logPath string) *slog.Logger {
+func setupLogger(pretty bool, level slog.Level, logPath string) *slog.Logger {
 	var log *slog.Logger
 
-	switch env {
-	case envLocal:
-		log = setupPrettySlog()
-	case envProd:
-		var logWriter io.Writer
+	var logWriter io.Writer
 
-		if logPath == "" {
-			logWriter = os.Stdout
-		} else {
-			var err error
-			logWriter, err = os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				panic("failed to open log file. Error: " + err.Error())
-			}
+	if logPath == "" {
+		logWriter = os.Stdout
+	} else {
+		var err error
+		logWriter, err = os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			panic("failed to open log file. Error: " + err.Error())
 		}
+	}
 
+	switch pretty {
+	case true:
+		log = setupPrettySlog(logWriter, level)
+	case false:
 		log = slog.New(
-			slog.NewJSONHandler(logWriter, &slog.HandlerOptions{Level: slog.LevelInfo}),
+			slog.NewJSONHandler(logWriter, &slog.HandlerOptions{Level: level}),
 		)
-	default:
-		panic("unknown environment " + env)
 	}
 
 	return log
 }
 
-func setupPrettySlog() *slog.Logger {
+func setupPrettySlog(writer io.Writer, level slog.Level) *slog.Logger {
 	opts := slogpretty.PrettyHandlerOptions{
 		SlogOpts: &slog.HandlerOptions{
-			Level: slog.LevelDebug,
+			Level: level,
 		},
 	}
 
-	handler := opts.NewPrettyHandler(os.Stdout)
+	handler := opts.NewPrettyHandler(writer)
 
 	return slog.New(handler)
 }

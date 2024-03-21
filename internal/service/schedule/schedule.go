@@ -14,12 +14,17 @@ import (
 type schedule struct {
 	log       *slog.Logger
 	auth      Auth
+	libClient LibraryClient
 	schClient ScheduleClient
 	djClient  AutoDJClient
 }
 
 type Auth interface {
 	Token(ctx context.Context, id int64) (jwt.Token, error)
+}
+
+type LibraryClient interface {
+	Media(ctx context.Context, token jwt.Token, id int64) (models.Media, error)
 }
 
 type ScheduleClient interface {
@@ -38,12 +43,14 @@ type AutoDJClient interface {
 func New(
 	log *slog.Logger,
 	auth Auth,
+	libClient LibraryClient,
 	schClient ScheduleClient,
 	djClient AutoDJClient,
 ) *schedule {
 	return &schedule{
 		log:       log,
 		auth:      auth,
+		libClient: libClient,
 		schClient: schClient,
 		djClient:  djClient,
 	}
@@ -103,6 +110,19 @@ func (s *schedule) Schedule(ctx context.Context, id int64) ([]models.Segment, er
 			sl.Err(err),
 		)
 		return []models.Segment{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	for i := range res {
+		media, err := s.libClient.Media(ctx, token, res[i].Media.ID)
+		if err != nil {
+			log.Error(
+				"failed to get media",
+				slog.Int64("media id", res[i].Media.ID),
+				sl.Err(err),
+			)
+			return []models.Segment{}, fmt.Errorf("%s: %w", op, err)
+		}
+		res[i].Media = media
 	}
 
 	return res, nil

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -104,8 +105,38 @@ var (
 )
 
 type Segment struct {
+	ID        int64
+	Media     Media
+	Start     time.Time
+	BeginCut  time.Duration
+	StopCut   time.Duration
+	Protected bool
+}
+
+func (s *Segment) UnmarshalJSON(data []byte) error {
+	var tmp segmentResponse
+
+	if err := json.Unmarshal(data, &tmp); err != nil {
+		return err
+	}
+
+	*s = Segment{
+		ID: tmp.ID,
+		Media: Media{
+			ID: tmp.MediaID,
+		},
+		Start:     tmp.Start,
+		BeginCut:  tmp.BeginCut,
+		StopCut:   tmp.StopCut,
+		Protected: tmp.Protected,
+	}
+
+	return nil
+}
+
+type segmentResponse struct {
 	ID        int64         `json:"id"`
-	Media     Media         `json:"mediaID"`
+	MediaID   int64         `json:"mediaID"`
 	Start     time.Time     `json:"start"`
 	BeginCut  time.Duration `json:"beginCut"`
 	StopCut   time.Duration `json:"stopCut"`

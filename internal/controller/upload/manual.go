@@ -34,7 +34,7 @@ func (u *upload) manualUpload(ctx context.Context, b *bot.Bot, update *models.Up
 		MessageID: u.msgIdStorage.Get(chatId),
 		Text:      ctr.LibUploadAskFile,
 	}); err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -48,14 +48,14 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 			ChatID: chatId,
 			Text:   ctr.LibUploadFileNotFound,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.LibUploadAskFile,
 		})
 		if err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		u.msgIdStorage.Set(chatId, msg.ID)
 		return
@@ -66,14 +66,14 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 			ChatID: chatId,
 			Text:   ctr.LibUploadInvalidMimeType,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.LibUploadAskFile,
 		})
 		if err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		u.msgIdStorage.Set(chatId, msg.ID)
 		return
@@ -87,7 +87,7 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -98,7 +98,7 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -126,7 +126,7 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 		ChatID:    chatId,
 		MessageID: update.Message.ID,
 	}); err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
@@ -135,7 +135,7 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 		ReplyMarkup: u.mediaConfMarkup(conf),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 

@@ -161,7 +161,7 @@ func (s *search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrUnknown,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -175,7 +175,7 @@ func (s *search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 		ParseMode:   models.ParseModeHTML,
 	})
 	if err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 	s.msgIdStorage.Set(chatId, msg.ID)
@@ -197,7 +197,7 @@ func (s *search) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
 		ReplyMarkup: s.mainMenuMarkup(searchOption{}),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -228,7 +228,7 @@ func (s *search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 	})
 	// TODO enhance errors
 	if err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 	if len(res) == 0 {
@@ -238,7 +238,7 @@ func (s *search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 			Text:        ctr.LibSearchErrEmptyRes,
 			ReplyMarkup: s.getSettingDataMarkup(),
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -256,7 +256,7 @@ func (s *search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 	})
 
 	if err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 	s.msgIdStorage.Set(chatId, msg.ID)
@@ -271,15 +271,17 @@ func (s *search) nullHandler(ctx context.Context, b *bot.Bot, update *models.Upd
 func (s *search) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
 	const op = "search.callbackAnswer"
 
+	chatId := callbackQuery.Message.Message.Chat.ID
+
 	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: callbackQuery.ID,
 	})
 	if err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		return
 	}
 	if !ok {
-		s.onError(fmt.Errorf("callback answer failed"))
+		s.onError(fmt.Errorf("%s [%d]: %s", op, chatId, "callback answer failed"))
 	}
 }
 

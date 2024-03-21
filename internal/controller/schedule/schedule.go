@@ -85,7 +85,7 @@ func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) 
 			ChatID: chatId,
 			Text:   ctr.ErrUnknown,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -97,7 +97,7 @@ func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) 
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -117,7 +117,7 @@ func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) 
 		ParseMode:   models.ParseModeHTML,
 	})
 	if err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 	s.msgIdStorage.Set(chatId, msg.ID)
@@ -137,7 +137,7 @@ func (s *schedule) update(ctx context.Context, b *bot.Bot, update *models.Update
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -157,7 +157,7 @@ func (s *schedule) update(ctx context.Context, b *bot.Bot, update *models.Update
 		ReplyMarkup: s.mainMenuMarkup(1, pages),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -175,7 +175,7 @@ func (s *schedule) newPage(ctx context.Context, b *bot.Bot, update *models.Updat
 			MessageID: s.msgIdStorage.Get(chatId),
 			Text:      ctr.ErrorMessage,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -190,7 +190,7 @@ func (s *schedule) newPage(ctx context.Context, b *bot.Bot, update *models.Updat
 		ReplyMarkup: s.mainMenuMarkup(id, pages),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -205,11 +205,11 @@ func (s *schedule) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery
 		CallbackQueryID: callbackQuery.ID,
 	})
 	if err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		return
 	}
 	if !ok {
-		s.onError(fmt.Errorf("callback answer failed"))
+		s.onError(fmt.Errorf("%s [%d]: %s", op, chatId, "callback answer failed"))
 	}
 }
 

@@ -30,7 +30,7 @@ func (u *upload) linkUpload(ctx context.Context, b *bot.Bot, update *models.Upda
 		Text:        ctr.LibUploadAskLink,
 		ReplyMarkup: u.cancelMarkup(),
 	}); err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -50,7 +50,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 				Text:   ctr.LibUploadErrInvalidLink,
 			})
 			if err != nil {
-				u.onError(fmt.Errorf("%s: %w", op, err))
+				u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 			}
 			u.msgIdStorage.Set(chatId, msg.ID)
 			return
@@ -59,7 +59,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -71,7 +71,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 		ChatID:    chatId,
 		MessageID: update.Message.ID,
 	}); err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 	switch res.Type {
@@ -92,7 +92,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 			ReplyMarkup: u.mediaConfMarkup(conf),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 	case localModels.ResPlaylist:
 		u.isPlaylistStorage.Set(chatId, true)
@@ -104,7 +104,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 			ReplyMarkup: u.playlistMarkup(),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 	}
 }

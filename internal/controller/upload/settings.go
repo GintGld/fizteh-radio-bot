@@ -51,7 +51,7 @@ func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.
 			ReplyMarkup: u.mediaConfMarkup(conf),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	case "podcast-playlist":
@@ -89,7 +89,7 @@ func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.
 			ReplyMarkup: u.mediaConfMarkup(conf),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -103,7 +103,7 @@ func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.
 		ReplyMarkup: u.getSettingDataMarkup(),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -121,7 +121,7 @@ func (u *upload) getSettingNewData(ctx context.Context, b *bot.Bot, update *mode
 			MessageID: u.msgIdStorage.Get(chatId),
 			Text:      ctr.LibUploadErrEmptyMsg,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -151,7 +151,7 @@ func (u *upload) getSettingNewData(ctx context.Context, b *bot.Bot, update *mode
 		ChatID:    chatId,
 		MessageID: update.Message.ID,
 	}); err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
@@ -160,7 +160,7 @@ func (u *upload) getSettingNewData(ctx context.Context, b *bot.Bot, update *mode
 		ReplyMarkup: u.mediaConfMarkup(conf),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -180,7 +180,7 @@ func (u *upload) cancelSubTask(ctx context.Context, b *bot.Bot, update *models.U
 		ReplyMarkup: u.mediaConfMarkup(conf),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 

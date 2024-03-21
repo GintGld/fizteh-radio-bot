@@ -43,9 +43,6 @@ const (
 	ErrEmptyLogin        = "Логин не может быть пустым."
 	ErrEmptyPass         = "Пароль не может быть пустым."
 
-	// "/lib" command
-	LibMainMenuMessage = "Можем что-нибудь поискать или загрузить новенькое."
-
 	// "/lib/search"
 	LibSearchInit               = "Настрой поиск, а потом нажми 'искать'."
 	LibSearchAskNameAuthor      = "Отлично, введи название/автора."
@@ -100,6 +97,9 @@ const (
 
 	// undefined behavior
 	UndefMsg = "Все плохо, пиши админу."
+
+	// unexpected message
+	UnexpectedMsg = "Ну и зачем ты мне это прислал(а)?"
 
 	// Default error message
 	ErrorMessage = "Произошла какая-то ошибка.\nТыкай админа."

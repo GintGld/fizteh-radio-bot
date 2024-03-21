@@ -38,7 +38,8 @@ type App struct {
 
 // New returns new bot instance.
 func New(
-	log *slog.Logger,
+	logSrv *slog.Logger,
+	logTg *slog.Logger,
 	tgToken string,
 	radioAddr string,
 	yaToken string,
@@ -46,6 +47,10 @@ func New(
 	tmpDir string,
 	srvFiller bool,
 ) *App {
+	// default handlers
+	errorHandler := getErrorHandler(logTg)
+	defaultHandler := getDefaultHandler(logTg, errorHandler)
+
 	bot, err := bot.New(tgToken,
 		bot.WithDefaultHandler(defaultHandler),
 	)
@@ -97,17 +102,17 @@ func New(
 		dj = filler
 	} else {
 		a := authSrv.New(
-			log,
+			logSrv,
 			authClient,
 		)
 		l := libSrv.New(
-			log,
+			logSrv,
 			a,
 			libClient,
 			yaClient,
 		)
 		s := schSrv.New(
-			log,
+			logSrv,
 			a,
 			schClient,
 			djClient,
@@ -121,6 +126,7 @@ func New(
 		dj = s
 	}
 
+	// routing
 	session := session.New[string]()
 
 	router := ctr.NewRouter(
@@ -176,7 +182,7 @@ func New(
 	)
 
 	return &App{
-		log: log,
+		log: logSrv,
 		bot: bot,
 		server: &http.Server{
 			Addr:    webhookAddr,
@@ -185,45 +191,58 @@ func New(
 	}
 }
 
-func defaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	if update.Message != nil {
-		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: update.Message.From.ID,
-			Text:   ctr.UndefMsg,
-		}); err != nil {
-			errorHandler(err)
-		}
+func getDefaultHandler(log *slog.Logger, errorHandler bot.ErrorsHandler) func(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "defaultHandler"
 
-		fmt.Println("unexpected message")
-	}
-
-	if update.CallbackQuery != nil {
-		ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-			CallbackQueryID: update.CallbackQuery.ID,
-		})
-		if err != nil {
-			errorHandler(err)
+	return func(ctx context.Context, b *bot.Bot, update *models.Update) {
+		if update.Message != nil {
+			if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: update.Message.Chat.ID,
+				Text:   ctr.UnexpectedMsg,
+			}); err != nil {
+				chatId := update.Message.Chat.ID
+				errorHandler(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+				return
+			}
 			return
 		}
-		if !ok {
-			errorHandler(fmt.Errorf("callback answer failed"))
+
+		if update.CallbackQuery != nil {
+			chatId := update.CallbackQuery.Message.Message.Chat.ID
+			ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+				CallbackQueryID: update.CallbackQuery.ID,
+			})
+			if err != nil {
+				errorHandler(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+				return
+			}
+			if !ok {
+				errorHandler(fmt.Errorf("%s [%d]: %s", op, chatId, "callback answer failed"))
+			}
+
+			if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID: update.CallbackQuery.From.ID,
+				Text:   ctr.UndefMsg,
+			}); err != nil {
+				errorHandler(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+			}
+
+			log.Error(
+				"unexpected callback",
+				slog.Int("id", int(chatId)),
+				slog.String("callback", update.CallbackQuery.Data),
+			)
+
+			return
 		}
 
-		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: update.CallbackQuery.From.ID,
-			Text:   ctr.UndefMsg,
-		}); err != nil {
-			errorHandler(err)
-		}
-
-		fmt.Printf("unexpected callback %s\n", update.CallbackQuery.Data)
 	}
 }
 
-// TODO add another slog.Logger
-// dump it to special file.
-func errorHandler(err error) {
-	fmt.Println(err.Error())
+func getErrorHandler(log *slog.Logger) bot.ErrorsHandler {
+	return func(err error) {
+		log.Error(err.Error())
+	}
 }
 
 // Run starts bot with webhook.

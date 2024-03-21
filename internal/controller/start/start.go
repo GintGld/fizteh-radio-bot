@@ -67,7 +67,7 @@ func (s *start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   fmt.Sprintf(ctr.AuthorizedMessage, update.Message.From.FirstName),
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 	} else {
 		s.session.Redirect(chatId, s.router.Path(cmdLogin))
@@ -75,7 +75,7 @@ func (s *start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.HelloMessage,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 	}
 }
@@ -92,7 +92,7 @@ func (s *start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrEmptyLogin,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -104,7 +104,7 @@ func (s *start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
 		ChatID: chatId,
 		Text:   ctr.GotLoginAskPass,
 	}); err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -120,7 +120,7 @@ func (s *start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrEmptyPass,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -133,7 +133,7 @@ func (s *start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrAuthorizedMessage,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -145,6 +145,6 @@ func (s *start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 		ChatID: chatId,
 		Text:   fmt.Sprintf(ctr.WelcomeMessage, update.Message.From.FirstName),
 	}); err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }

@@ -9,11 +9,16 @@ import (
 
 type Config struct {
 	Env         string `yaml:"env" env-required:"true"`
-	LogPath     string `yaml:"log-path" env-default:""`
+	Log         Log    `yaml:"log"`
 	RadioAddr   string `yaml:"radio-addr" env-required:"true"`
 	WebhookAddr string `yaml:"webhook-addr" env-default:"8443"`
 	TmpDir      string `yaml:"tmp-dir" env-default:"tmp"`
 	UseFiller   bool   `yaml:"use-filler" env-default:"false"`
+}
+
+type Log struct {
+	SrvPath string `yaml:"srv-path" env-default:""`
+	TgPath  string `yaml:"tg-path" env-default:""`
 }
 
 func MustLoad() *Config {

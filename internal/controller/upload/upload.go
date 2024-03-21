@@ -114,7 +114,7 @@ func (u *upload) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrUnknown,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -124,7 +124,7 @@ func (u *upload) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 		ReplyMarkup: u.mainMenuMarkup(),
 	})
 	if err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 	u.msgIdStorage.Set(chatId, msg.ID)
@@ -152,7 +152,7 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			u.onError(fmt.Errorf("%s: %w", op, err))
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -167,7 +167,7 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 		MessageID: u.msgIdStorage.Get(chatId),
 		Text:      ctr.LibUploadSuccess,
 	}); err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -188,7 +188,7 @@ func (u *upload) returnToMainMenu(ctx context.Context, b *bot.Bot, update *model
 		Text:        ctr.LibUpload,
 		ReplyMarkup: u.mainMenuMarkup(),
 	}); err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -199,14 +199,16 @@ func (u *upload) nullHandler(ctx context.Context, b *bot.Bot, update *models.Upd
 func (u *upload) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
 	const op = "upload.callbackAnswer"
 
+	chatId := callbackQuery.Message.Message.Chat.ID
+
 	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: callbackQuery.ID,
 	})
 	if err != nil {
-		u.onError(fmt.Errorf("%s: %w", op, err))
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		return
 	}
 	if !ok {
-		u.onError(fmt.Errorf("callback answer failed"))
+		u.onError(fmt.Errorf("%s [%d]: %s", op, chatId, "callback answer failed"))
 	}
 }

@@ -21,14 +21,16 @@ const (
 func main() {
 	cfg := config.MustLoad()
 
-	log := setupLogger(cfg.Env, cfg.LogPath)
+	logSrv := setupLogger(cfg.Env, cfg.Log.SrvPath)
+	logTg := setupLogger(cfg.Env, cfg.Log.TgPath)
 
-	log.Info("start bot", slog.String("env", cfg.Env))
-	log.Debug("debug messages are enabled")
+	logSrv.Info("start bot", slog.String("env", cfg.Env))
+	logSrv.Debug("debug messages are enabled")
 
 	// Create bot instance
 	app := app.New(
-		log,
+		logSrv,
+		logTg,
 		getTelegramToken(),
 		cfg.RadioAddr,
 		getYandexToken(),
@@ -48,7 +50,7 @@ func main() {
 
 	app.Stop()
 
-	log.Info("Gracefully stopped")
+	logSrv.Info("Gracefully stopped")
 }
 
 func setupLogger(env, logPath string) *slog.Logger {

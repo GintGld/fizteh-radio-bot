@@ -30,7 +30,7 @@ func Register(
 				ChatID: chatId,
 				Text:   ctr.ErrUnknown,
 			}); err != nil {
-				onError(fmt.Errorf("%s: %w", op, err))
+				onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 			}
 			return
 		}
@@ -39,7 +39,7 @@ func Register(
 			ChatID: chatId,
 			Text:   ctr.HelpMessage,
 		}); err != nil {
-			onError(fmt.Errorf("%s: %w", op, err))
+			onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 	})
 }

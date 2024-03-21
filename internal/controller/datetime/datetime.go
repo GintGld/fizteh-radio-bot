@@ -88,7 +88,7 @@ func (p *picker) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 		),
 	})
 	if err != nil {
-		p.onError(fmt.Errorf("%s: %w", op, err))
+		p.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		return
 	}
 	p.msgIdStorage.Set(chatId, msg.ID)
@@ -107,7 +107,7 @@ func (p *picker) catchDatePicker(ctx context.Context, b *bot.Bot, mes models.May
 		ReplyMarkup: p.timePickMarkup(),
 	})
 	if err != nil {
-		p.onError(fmt.Errorf("%s: %w", op, err))
+		p.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 	p.msgIdStorage.Set(chatId, msg.ID)
@@ -138,7 +138,7 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 		Protected: true,
 	}
 	if err := p.schedule.NewSegment(ctx, chatId, segm); err != nil {
-		p.onError(fmt.Errorf("%s: %w", op, err))
+		p.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		// TODO: handle many errors
 	}
 
@@ -147,7 +147,7 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 		MessageID: p.msgIdStorage.Get(chatId),
 		Text:      p.successMsg(date, date.Add(media.Duration)),
 	}); err != nil {
-		p.onError(fmt.Errorf("%s: %w", op, err))
+		p.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -170,22 +170,24 @@ func (p *picker) cancelTimePicker(ctx context.Context, b *bot.Bot, update *model
 			datepicker.OnError(datepicker.OnErrorHandler(p.onError)),
 		),
 	}); err != nil {
-		p.onError(fmt.Errorf("%s: %w", op, err))
+		p.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
 func (p *picker) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
 	const op = "picker.callbackAnswer"
 
+	chatId := callbackQuery.Message.Message.Chat.ID
+
 	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: callbackQuery.ID,
 	})
 	if err != nil {
-		p.onError(fmt.Errorf("%s: %w", op, err))
+		p.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		return
 	}
 	if !ok {
-		p.onError(fmt.Errorf("callback answer failed"))
+		p.onError(fmt.Errorf("%s [%d]: %s", op, chatId, "callback answer failed"))
 	}
 }
 

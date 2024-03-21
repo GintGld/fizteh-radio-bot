@@ -47,7 +47,7 @@ func (s *search) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 			ReplyMarkup: s.mainMenuMarkup(opt),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	case "podcast-playlist":
@@ -81,7 +81,7 @@ func (s *search) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 			Text:      msg,
 			ParseMode: models.ParseModeHTML,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -94,7 +94,7 @@ func (s *search) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 		Text:        msg,
 		ReplyMarkup: s.getSettingDataMarkup(),
 	}); err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -111,7 +111,7 @@ func (s *search) getData(ctx context.Context, b *bot.Bot, update *models.Update)
 			ChatID: chatId,
 			Text:   ctr.LibUploadErrEmptyMsg,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -137,7 +137,7 @@ func (s *search) getData(ctx context.Context, b *bot.Bot, update *models.Update)
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -150,7 +150,7 @@ func (s *search) getData(ctx context.Context, b *bot.Bot, update *models.Update)
 		ChatID:    chatId,
 		MessageID: update.Message.ID,
 	}); err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
@@ -160,7 +160,7 @@ func (s *search) getData(ctx context.Context, b *bot.Bot, update *models.Update)
 		ReplyMarkup: s.mainMenuMarkup(opt),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -180,6 +180,6 @@ func (s *search) cancelSlider(ctx context.Context, b *bot.Bot, update *models.Up
 		ReplyMarkup: s.mainMenuMarkup(opt),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }

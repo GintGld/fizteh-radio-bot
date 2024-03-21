@@ -29,7 +29,7 @@ func (s *search) updateSlide(ctx context.Context, b *bot.Bot, update *models.Upd
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			s.onError(fmt.Errorf("%s: %w", op, err))
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 	}
 	s.mediaPage.Set(chatId, id)
@@ -47,7 +47,7 @@ func (s *search) updateSlide(ctx context.Context, b *bot.Bot, update *models.Upd
 		ReplyMarkup: s.mediaSliderMarkup(id, len(res)),
 	})
 	if err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 	s.msgIdStorage.Set(chatId, msg.ID)
@@ -68,7 +68,7 @@ func (s *search) canceledDateTimeSelector(ctx context.Context, b *bot.Bot, mes m
 		ReplyMarkup: s.mediaSliderMarkup(id, len(res)),
 	})
 	if err != nil {
-		s.onError(fmt.Errorf("%s: %w", op, err))
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 	s.msgIdStorage.Set(chatId, msg.ID)
 }

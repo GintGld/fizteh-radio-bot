@@ -99,7 +99,7 @@ func (a *autodj) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrUnknown,
 		}); err != nil {
-			a.onError(fmt.Errorf("%s: %w", op, err))
+			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -111,7 +111,7 @@ func (a *autodj) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			a.onError(fmt.Errorf("%s: %w", op, err))
+			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -125,7 +125,7 @@ func (a *autodj) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 		ParseMode:   models.ParseModeHTML,
 	})
 	if err != nil {
-		a.onError(fmt.Errorf("%s: %w", op, err))
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 	a.msgIdStorage.Set(chatId, msg.ID)
@@ -145,7 +145,7 @@ func (a *autodj) getCurrConf(ctx context.Context, b *bot.Bot, update *models.Upd
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			a.onError(fmt.Errorf("%s: %w", op, err))
+			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -159,7 +159,7 @@ func (a *autodj) getCurrConf(ctx context.Context, b *bot.Bot, update *models.Upd
 		ParseMode:   models.ParseModeHTML,
 	})
 	if err != nil {
-		a.onError(fmt.Errorf("%s: %w", op, err))
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 	a.msgIdStorage.Set(chatId, msg.ID)
@@ -178,7 +178,7 @@ func (a *autodj) send(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			a.onError(fmt.Errorf("%s: %w", op, err))
+			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -188,7 +188,7 @@ func (a *autodj) send(ctx context.Context, b *bot.Bot, update *models.Update) {
 		MessageID: a.msgIdStorage.Get(chatId),
 		Text:      ctr.ErrorMessage,
 	}); err != nil {
-		a.onError(fmt.Errorf("%s: %w", op, err))
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -224,7 +224,7 @@ func (a *autodj) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 		MessageID: a.msgIdStorage.Get(chatId),
 		Text:      msg,
 	}); err != nil {
-		a.onError(fmt.Errorf("%s: %w", op, err))
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -251,7 +251,7 @@ func (a *autodj) startStop(ctx context.Context, b *bot.Bot, update *models.Updat
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			a.onError(fmt.Errorf("%s: %w", op, err))
+			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -262,7 +262,7 @@ func (a *autodj) startStop(ctx context.Context, b *bot.Bot, update *models.Updat
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			a.onError(fmt.Errorf("%s: %w", op, err))
+			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -274,7 +274,7 @@ func (a *autodj) startStop(ctx context.Context, b *bot.Bot, update *models.Updat
 		ReplyMarkup: a.mainMenuMarkup(conf),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		a.onError(fmt.Errorf("%s: %w", op, err))
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 
 }
@@ -307,7 +307,7 @@ func (a *autodj) getUpdate(ctx context.Context, b *bot.Bot, update *models.Updat
 		ChatID:    chatId,
 		MessageID: update.Message.ID,
 	}); err != nil {
-		a.onError(fmt.Errorf("%s: %w", op, err))
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
@@ -316,7 +316,7 @@ func (a *autodj) getUpdate(ctx context.Context, b *bot.Bot, update *models.Updat
 		ReplyMarkup: a.mainMenuMarkup(conf),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		a.onError(fmt.Errorf("%s: %w", op, err))
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -334,7 +334,7 @@ func (a *autodj) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
 		}); err != nil {
-			a.onError(fmt.Errorf("%s: %w", op, err))
+			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 		return
 	}
@@ -348,7 +348,7 @@ func (a *autodj) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
 		ReplyMarkup: a.mainMenuMarkup(currentConf),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
-		a.onError(fmt.Errorf("%s: %w", op, err))
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
 }
 
@@ -359,15 +359,17 @@ func (a *autodj) nullHandler(ctx context.Context, b *bot.Bot, update *models.Upd
 func (a *autodj) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
 	const op = "autodj.callBackAnswer"
 
+	chatId := callbackQuery.Message.Message.Chat.ID
+
 	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: callbackQuery.ID,
 	})
 	if err != nil {
-		a.onError(fmt.Errorf("%s: %w", op, err))
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		return
 	}
 	if !ok {
-		a.onError(fmt.Errorf("callback answer failed"))
+		a.onError(fmt.Errorf("%s [%d]: %s", op, chatId, "callback answer failed"))
 	}
 }
 

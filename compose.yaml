@@ -1,0 +1,17 @@
+services:
+  radio-bot:
+    image: gingld/fizteh-radio-bot:latest
+    container_name: radio-bot
+    restart: always
+    # TODO: enable port for webhook
+    # ports:
+      # - 8082:8082
+    volumes:
+      - tmp:/bot/tmp
+      - ./config/prod.yaml:/bot/config/prod.yaml
+      - ./.log/bot:/.log      
+    env_file:
+      - .env
+
+volumes:
+  tmp:

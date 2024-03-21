@@ -1,0 +1,9 @@
+.cache
+.local
+.log
+.vscode
+.env
+.gitignore
+config
+tmp
+*.yaml

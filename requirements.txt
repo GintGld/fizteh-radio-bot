@@ -1,9 +1,0 @@
-certifi==2023.11.17
-multipart==0.2.4
-PyJWT==2.8.0
-pyTelegramBotAPI==4.15.4
-python-dotenv==1.0.1
-python_dateutil==2.8.2
-requests_toolbelt==1.0.0
-six==1.16.0
-urllib3==2.2.0

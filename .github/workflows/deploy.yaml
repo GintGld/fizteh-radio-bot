@@ -1,0 +1,44 @@
+name: Deploy App
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HOST: fizteh-radio@radiomipt.ru
+      PORT: 5010
+      DEPLOY_DIR: /home/fizteh-radio/online-radio/bot
+      CONFIG_PATH: /home/fizteh-radio/online-radio/bot/prod.yaml
+      ENV_FILE_PATH: /home/fizteh-radio/online-radio/bot/.env
+      COMPOSE_ENV: /home/fizteh-radio/online-radio/bot/compose.env
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup ssh
+        run: |
+          echo "$DEPLOY_SSH_KEY" > deploy_key.pem
+          sudo chmod 600 deploy_key.pem
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: Setup environment
+        run: |
+          ssh -i deploy_key.pem -o StrictHostKeyChecking=no -p ${{ env.PORT }} ${{ env.HOST }} \
+          "mkdir -p ${{ env.DEPLOY_DIR }} ${{ env.DEPLOY_DIR }}/.nginx ${{ env.DEPLOY_DIR }}/config && \
+          sudo rm -f ${{ env.ENV_FILE_PATH }} ${{ env.COMPOSE_ENV }} && \
+          echo "CONFIG_PATH=/radio/config/prod.yaml" >> ${{ env.ENV_FILE_PATH }} && \
+          echo "TG_TOKEN=${{ secrets.TG_TOKEN }}" >> ${{ env.ENV_FILE_PATH }} && \
+          echo "YA_TOKEN=${{ secrets.YA_TOKEN }}" >> ${{ env.ENV_FILE_PATH }}
+      - name: Send config files
+        run: |
+          scp -r -i deploy_key.pem -o StrictHostKeyChecking=no -P ${{ env.PORT }} \
+          compose.yaml config/prod.yaml .nginx scripts/run-compose.sh \
+          ${{ env.HOST }}:${{ env.DEPLOY_DIR }}
+      - name: Deploy to server
+        run: |
+          ssh -i deploy_key.pem -o StrictHostKeyChecking=no -p ${{ env.PORT }} ${{ env.HOST }} \
+          'cd ${{ env.DEPLOY_DIR }} && \
+          sudo docker image rm gingld/fizteh-radio-bot && \
+          sudo docker compose --env-file ${{ env.COMPOSE_ENV }} stop && \
+          sudo docker compose --env-file ${{ env.COMPOSE_ENV }} up -d'

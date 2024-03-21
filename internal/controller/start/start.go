@@ -25,6 +25,7 @@ type start struct {
 	onError bot.ErrorsHandler
 
 	loginStorage storage.Storage[string]
+	msgToDel     storage.Storage[[]int]
 }
 
 type Auth interface {
@@ -45,6 +46,7 @@ func Register(
 		onError: onError,
 
 		loginStorage: storage.New[string](),
+		msgToDel:     storage.New[[]int](),
 	}
 
 	router.RegisterCommand(app.init)
@@ -71,12 +73,15 @@ func (s *start) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 		}
 	} else {
 		s.session.Redirect(chatId, s.router.Path(cmdLogin))
-		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.HelloMessage,
-		}); err != nil {
+		})
+		if err != nil {
 			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+			return
 		}
+		s.msgToDel.Set(chatId, []int{msg.ID})
 	}
 }
 
@@ -100,12 +105,18 @@ func (s *start) login(ctx context.Context, b *bot.Bot, update *models.Update) {
 	s.loginStorage.Set(chatId, login)
 	s.session.Redirect(chatId, s.router.Path(cmdPass))
 
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+	msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: chatId,
 		Text:   ctr.GotLoginAskPass,
-	}); err != nil {
+	})
+	if err != nil {
 		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		return
 	}
+	msgs := s.msgToDel.Get(chatId)
+	msgs = append(msgs, msg.ID)
+	msgs = append(msgs, update.Message.ID)
+	s.msgToDel.Set(chatId, msgs)
 }
 
 // Get pass, validate it
@@ -135,9 +146,21 @@ func (s *start) pass(ctx context.Context, b *bot.Bot, update *models.Update) {
 		}); err != nil {
 			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
+		s.session.Redirect(chatId, s.router.Path(cmdLogin))
+		return
+	}
+	msgs := s.msgToDel.Get(chatId)
+	msgs = append(msgs, update.Message.ID)
+
+	if _, err := b.DeleteMessages(ctx, &bot.DeleteMessagesParams{
+		ChatID:     chatId,
+		MessageIDs: msgs,
+	}); err != nil {
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		return
 	}
 
+	s.msgToDel.Del(chatId)
 	s.loginStorage.Del(chatId)
 	s.session.Redirect(chatId, ctr.NullStatus)
 

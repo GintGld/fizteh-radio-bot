@@ -17,7 +17,6 @@ type Auth interface {
 func Register(
 	router *ctr.Router,
 	auth Auth,
-	session ctr.Session,
 	onError bot.ErrorsHandler,
 ) {
 	router.RegisterCommand(func(ctx context.Context, b *bot.Bot, update *models.Update) {

@@ -142,14 +142,11 @@ func New(
 		session,
 		errorHandler,
 	)
-
 	help.Register(
 		router.With("help"),
 		auth,
-		session,
 		errorHandler,
 	)
-
 	search.Register(
 		router.With("lib"),
 		auth,
@@ -158,7 +155,6 @@ func New(
 		session,
 		errorHandler,
 	)
-
 	upload.Register(
 		router.With("upload"),
 		auth,
@@ -167,7 +163,6 @@ func New(
 		errorHandler,
 		tmpDir,
 	)
-
 	schedule.Register(
 		router.With("sch"),
 		auth,
@@ -175,7 +170,6 @@ func New(
 		session,
 		errorHandler,
 	)
-
 	autodj.Register(
 		router.With("dj"),
 		auth,

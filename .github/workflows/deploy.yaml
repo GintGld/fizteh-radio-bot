@@ -20,14 +20,12 @@ jobs:
         run: |
           echo "$DEPLOY_SSH_KEY" > deploy_key.pem
           sudo chmod 600 deploy_key.pem
-          ssh -i deploy_key.pem -o StrictHostKeyChecking=no -p ${{ env.PORT }} ${{ env.HOST }} \
-          "echo 'hi'"
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       - name: Setup environment
         run: |
           ssh -i deploy_key.pem -o StrictHostKeyChecking=no -p ${{ env.PORT }} ${{ env.HOST }} \
-          "mkdir -p ${{ env.DEPLOY_DIR }} ${{ env.DEPLOY_DIR }}/.nginx ${{ env.DEPLOY_DIR }}/config && \
+          "mkdir -p ${{ env.DEPLOY_DIR }} ${{ env.DEPLOY_DIR }}/config && \
           sudo rm -f ${{ env.ENV_FILE_PATH }} ${{ env.COMPOSE_ENV }} && \
           echo "CONFIG_PATH=/radio/config/prod.yaml" >> ${{ env.ENV_FILE_PATH }} && \
           echo "TG_TOKEN=${{ secrets.TG_TOKEN }}" >> ${{ env.ENV_FILE_PATH }} && \
@@ -35,8 +33,11 @@ jobs:
       - name: Send config files
         run: |
           scp -r -i deploy_key.pem -o StrictHostKeyChecking=no -P ${{ env.PORT }} \
-          compose.yaml config/prod.yaml .nginx scripts/run-compose.sh \
+          compose.yaml  \
           ${{ env.HOST }}:${{ env.DEPLOY_DIR }}
+          scp -r -i deploy_key.pem -o StrictHostKeyChecking=no -P ${{ env.PORT }} \
+          config/prod.yaml  \
+          ${{ env.HOST }}:${{ env.DEPLOY_DIR }}/config
       - name: Deploy to server
         run: |
           ssh -i deploy_key.pem -o StrictHostKeyChecking=no -p ${{ env.PORT }} ${{ env.HOST }} \

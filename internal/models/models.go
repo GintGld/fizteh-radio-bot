@@ -8,9 +8,9 @@ import (
 )
 
 type User struct {
-	Login string
-	Pass  string
-	Token jwt.Token
+	Login string    `json:"login"`
+	Pass  string    `json:"pass"`
+	Token jwt.Token `json:"-"`
 }
 
 type Media struct {

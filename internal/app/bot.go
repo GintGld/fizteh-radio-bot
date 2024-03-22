@@ -45,6 +45,7 @@ func New(
 	yaToken string,
 	webhookAddr string,
 	tmpDir string,
+	userCacheFile string,
 	srvFiller bool,
 ) *App {
 	// default handlers
@@ -106,6 +107,7 @@ func New(
 		a := authSrv.New(
 			logSrv,
 			authClient,
+			userCacheFile,
 		)
 		l := libSrv.New(
 			logSrv,

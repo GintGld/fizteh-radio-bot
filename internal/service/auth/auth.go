@@ -2,8 +2,11 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
@@ -19,10 +22,13 @@ import (
 type auth struct {
 	log        *slog.Logger
 	authClient AuthClient
-	users      map[int64]models.User
-	userMutex  map[int64]*sync.Mutex
-	updCtx     context.Context
-	cancel     context.CancelFunc
+	cacheFile  string
+
+	users     map[int64]models.User
+	mapMutex  *sync.Mutex
+	userMutex map[int64]*sync.Mutex
+	updCtx    context.Context
+	cancel    context.CancelFunc
 }
 
 type AuthClient interface {
@@ -32,17 +38,30 @@ type AuthClient interface {
 func New(
 	log *slog.Logger,
 	authCLient AuthClient,
+	cacheFile string,
 ) *auth {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return &auth{
+	a := &auth{
 		log:        log,
 		authClient: authCLient,
+		cacheFile:  cacheFile,
 		users:      make(map[int64]models.User),
+		mapMutex:   &sync.Mutex{},
 		userMutex:  make(map[int64]*sync.Mutex),
 		updCtx:     ctx,
 		cancel:     cancel,
 	}
+
+	if err := a.recoverUsers(); err != nil {
+		log.Error(
+			"failed to recover users",
+			slog.String("op", "auth.New"),
+			sl.Err(err),
+		)
+	}
+
+	return a
 }
 
 func (a *auth) IsKnown(_ context.Context, id int64) bool {
@@ -84,6 +103,13 @@ func (a *auth) Login(ctx context.Context, id int64, login, pass string) error {
 
 	a.updateToken(a.updCtx, id)
 
+	if err := a.Dump(); err != nil {
+		log.Error(
+			"failed to dump new users info",
+			sl.Err(err),
+		)
+	}
+
 	return nil
 }
 
@@ -101,10 +127,63 @@ func (a *auth) Token(_ context.Context, id int64) (jwt.Token, error) {
 	}
 }
 
-func (a *auth) Dump() {
-	// TODO save user info to a file
+func (a *auth) recoverUsers() error {
+	const op = "auth.recoverUsers"
 
-	a.cancel()
+	log := a.log.With(
+		slog.String("op", op),
+		slog.String("file", a.cacheFile),
+	)
+
+	file, err := os.Open(a.cacheFile)
+	if err != nil {
+		log.Error("failed to open cache file", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	res, err := io.ReadAll(file)
+	if err != nil {
+		log.Error("failed to open cache file", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := json.Unmarshal(res, &a.users); err != nil {
+		log.Error("failed to unmarshal users info", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (a *auth) Dump() error {
+	const op = "auth.Dump"
+
+	log := a.log.With(
+		slog.String("op", op),
+		slog.String("file", a.cacheFile),
+	)
+
+	a.mapMutex.Lock()
+	defer a.mapMutex.Unlock()
+
+	bytes, err := json.Marshal(a.users)
+	if err != nil {
+		log.Error("failed to marshal users", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	file, err := os.OpenFile(a.cacheFile, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Error("failed to open file", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if _, err := file.Write(bytes); err != nil {
+		log.Error("failed to write to a file", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
 }
 
 // updateToken updates token for user.

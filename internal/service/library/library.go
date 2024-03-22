@@ -176,7 +176,6 @@ func (l *library) NewMedia(ctx context.Context, id int64, mediaConf models.Media
 		log.Error("failed to get available tags", sl.Err(err))
 		return fmt.Errorf("%s: %w", op, err)
 	}
-	log.Debug("im here", slog.Any("tags", media.Tags))
 	for i, tag := range media.Tags {
 		if j := slices.IndexFunc(tagAvail, func(t models.Tag) bool {
 			return t.Name == tag.Name

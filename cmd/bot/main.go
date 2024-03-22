@@ -31,6 +31,7 @@ func main() {
 		getYandexToken(),
 		cfg.WebhookAddr,
 		cfg.TmpDir,
+		cfg.UserCacheFile,
 		cfg.UseFiller,
 	)
 

@@ -1,12 +1,12 @@
-env: local
+env: prod
 log:
   srv:
-    level: debug
+    level: info
     path: /.log/srv.log
     pretty: false
   tg:
-    level: debug
+    level: info
     path: /.log/tg.log
     pretty: false
 tmp-dir: /bot/tmp
-radio-addr: http://localhost:8082
+radio-addr: https://radiomipt.ru

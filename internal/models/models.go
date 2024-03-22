@@ -202,3 +202,46 @@ func (conf MediaConfig) ToMedia() Media {
 		SourcePath: conf.SourcePath,
 	}
 }
+
+func (m Media) ToConfig() MediaConfig {
+	Playlists := make([]string, 0)
+	Podcasts := make([]string, 0)
+	Genres := make([]string, 0)
+	Languages := make([]string, 0)
+	Moods := make([]string, 0)
+	var format MediaFormat
+
+	for _, t := range m.Tags {
+		switch t.Type.Name {
+		case "format":
+			switch t.Name {
+			case "song":
+				format = Song
+			case "podcast":
+				format = Podcast
+			}
+		case "playlist":
+			Playlists = append(Playlists, t.Name)
+		case "podcast":
+			Podcasts = append(Podcasts, t.Name)
+		case "genre":
+			Genres = append(Genres, t.Name)
+		case "language":
+			Languages = append(Languages, t.Name)
+		case "mood":
+			Moods = append(Moods, t.Name)
+		}
+	}
+
+	return MediaConfig{
+		Name:      m.Name,
+		Author:    m.Author,
+		Duration:  m.Duration,
+		Format:    format,
+		Playlists: Playlists,
+		Podcasts:  Podcasts,
+		Genres:    Genres,
+		Languages: Languages,
+		Moods:     Moods,
+	}
+}

@@ -48,18 +48,15 @@ func (f *Filler) LinkDownload(_ context.Context, _ int64, _ string) (models.Link
 
 	respSize := rand.Intn(maxRespLen)
 
-	res := make([]models.Media, respSize)
+	res := make([]models.MediaConfig, respSize)
 
 	for i := range res {
-		res[i] = random.Media()
+		res[i] = random.Media().ToConfig()
 	}
 
 	return models.LinkDownloadResult{
 		Type: models.ResPlaylist,
-		Playlist: struct {
-			Name   string
-			Values []models.Media
-		}{
+		Playlist: models.Playlist{
 			Name:   gofakeit.Name(),
 			Values: res,
 		},

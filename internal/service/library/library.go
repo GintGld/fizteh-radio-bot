@@ -287,7 +287,7 @@ func (l *library) linkPlaylist(ctx context.Context, url string) (models.Playlist
 		return models.Playlist{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	values := make([]models.Media, 0, len(playlist.Tracks))
+	values := make([]models.MediaConfig, 0, len(playlist.Tracks))
 	for _, track := range playlist.Tracks {
 		filePath, err := l.downloadLinkTrack(ctx, track.Id)
 		if err != nil {
@@ -299,11 +299,12 @@ func (l *library) linkPlaylist(ctx context.Context, url string) (models.Playlist
 			return models.Playlist{}, fmt.Errorf("%s: %w", op, err)
 		}
 
-		values = append(values, models.Media{
+		values = append(values, models.MediaConfig{
 			Name:       track.Title,
 			Author:     track.Artists[0].Name,
 			Duration:   track.Duration,
 			SourcePath: filePath,
+			Format:     models.Song,
 		})
 	}
 
@@ -422,7 +423,7 @@ func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownl
 		}
 
 		for _, m := range res.Playlist.Values {
-			if err := l.libClient.NewMedia(ctx, token, m); err != nil {
+			if err := l.libClient.NewMedia(ctx, token, m.ToMedia()); err != nil {
 				log.Error(
 					"failed to upload media",
 					slog.String("Name", m.Name),

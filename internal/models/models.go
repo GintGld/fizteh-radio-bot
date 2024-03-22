@@ -24,7 +24,7 @@ type Media struct {
 
 type Playlist struct {
 	Name   string
-	Values []Media
+	Values []MediaConfig
 }
 
 type MediaConfig struct {

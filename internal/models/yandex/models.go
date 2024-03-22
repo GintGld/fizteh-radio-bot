@@ -145,7 +145,6 @@ func (a *Album) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// FIXME add podcast support
 func (t *Track) UnmarshalJSON(data []byte) error {
 	var tmp trackResponse
 

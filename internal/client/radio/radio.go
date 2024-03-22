@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	urlPkg "net/url"
 	"os"
 	"strings"
 	"time"
@@ -103,13 +104,13 @@ func (c *Client) Search(ctx context.Context, token jwt.Token, filter models.Medi
 
 	query := make([]string, 0, 3)
 	if filter.Name != "" {
-		query = append(query, fmt.Sprintf("name=%s", filter.Name))
+		query = append(query, urlPkg.PathEscape(fmt.Sprintf("name=%s", filter.Name)))
 	}
 	if filter.Author != "" {
-		query = append(query, fmt.Sprintf("author=%s", filter.Author))
+		query = append(query, urlPkg.PathEscape(fmt.Sprintf("author=%s", filter.Author)))
 	}
 	if len(filter.Tags) > 0 {
-		query = append(query, fmt.Sprintf("tags=%s", strings.Join(filter.Tags, ",")))
+		query = append(query, urlPkg.PathEscape(fmt.Sprintf("tags=%s", strings.Join(filter.Tags, ","))))
 	}
 
 	if len(query) > 0 {

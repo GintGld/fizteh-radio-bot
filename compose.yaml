@@ -8,6 +8,7 @@ services:
       # - 8082:8082
     volumes:
       - tmp:/bot/tmp
+      - cache:/bot/.cache
       - ./config/prod.yaml:/bot/config/prod.yaml
       - ./.log/bot:/.log      
     env_file:
@@ -15,3 +16,4 @@ services:
 
 volumes:
   tmp:
+  cache:

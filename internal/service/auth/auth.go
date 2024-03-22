@@ -53,7 +53,7 @@ func New(
 		cancel:     cancel,
 	}
 
-	if err := a.recoverUsers(); err != nil {
+	if err := a.recoverUsers(context.Background()); err != nil {
 		log.Error(
 			"failed to recover users",
 			slog.String("op", "auth.New"),
@@ -127,7 +127,7 @@ func (a *auth) Token(_ context.Context, id int64) (jwt.Token, error) {
 	}
 }
 
-func (a *auth) recoverUsers() error {
+func (a *auth) recoverUsers(ctx context.Context) error {
 	const op = "auth.recoverUsers"
 
 	log := a.log.With(
@@ -150,6 +150,13 @@ func (a *auth) recoverUsers() error {
 	if err := json.Unmarshal(res, &a.users); err != nil {
 		log.Error("failed to unmarshal users info", sl.Err(err))
 		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	for id, user := range a.users {
+		if err := a.Login(ctx, id, user.Login, user.Pass); err != nil {
+			log.Error("failed to login user", slog.Int64("id", id), sl.Err(err))
+			return fmt.Errorf("%s: %w", op, err)
+		}
 	}
 
 	return nil

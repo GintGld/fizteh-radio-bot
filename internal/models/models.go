@@ -101,6 +101,7 @@ var (
 		"playlist": {ID: 3, Name: "playlist"},
 		"mood":     {ID: 4, Name: "mood"},
 		"language": {ID: 5, Name: "language"},
+		"podcast":  {ID: 6, Name: "podcast"},
 	}
 )
 

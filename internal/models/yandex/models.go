@@ -5,17 +5,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"time"
 )
 
 const (
 	SIGN_SALT = "XGRlBW9FXlekgbPrRHuSiA"
-)
-
-var (
-	ErrTrackIsNotMusic = errors.New("track is not music")
 )
 
 type DownloadInfo struct {
@@ -87,7 +82,13 @@ type Track struct {
 	Title    string
 	Duration time.Duration
 	Artists  []Artist
+	Format   string
 }
+
+const (
+	YaMusicFormat   = "music"
+	YaPodcastFormat = "podcast-episode"
+)
 
 type YaError struct {
 	Err struct {
@@ -151,14 +152,12 @@ func (t *Track) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &tmp); err != nil {
 		return err
 	}
-	if tmp.Type != "music" {
-		return ErrTrackIsNotMusic
-	}
 
 	t.Id = tmp.Id
 	t.Title = tmp.Title
 	t.Duration = time.Millisecond * time.Duration(tmp.DurationMs)
 	t.Artists = tmp.Artists
+	t.Format = tmp.Type
 
 	return nil
 }

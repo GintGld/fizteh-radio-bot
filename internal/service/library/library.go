@@ -113,63 +113,7 @@ func (l *library) NewMedia(ctx context.Context, id int64, mediaConf models.Media
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	tags := make(models.TagList, 0,
-		1+len(mediaConf.Playlists)+
-			len(mediaConf.Podcasts)+
-			len(mediaConf.Genres)+
-			len(mediaConf.Languages)+
-			len(mediaConf.Moods),
-	)
-	switch mediaConf.Format {
-	case models.Song:
-		tags = append(tags, models.Tag{
-			Name: "song",
-			Type: models.TagTypesAvail["format"],
-		})
-	case models.Podcast:
-		tags = append(tags, models.Tag{
-			Name: "podcast",
-			Type: models.TagTypesAvail["format"],
-		})
-	}
-	for _, t := range mediaConf.Playlists {
-		tags = append(tags, models.Tag{
-			Name: t,
-			Type: models.TagTypesAvail["playlist"],
-		})
-	}
-	for _, t := range mediaConf.Podcasts {
-		tags = append(tags, models.Tag{
-			Name: t,
-			Type: models.TagTypesAvail["podcast"],
-		})
-	}
-	for _, t := range mediaConf.Genres {
-		tags = append(tags, models.Tag{
-			Name: t,
-			Type: models.TagTypesAvail["genre"],
-		})
-	}
-	for _, t := range mediaConf.Languages {
-		tags = append(tags, models.Tag{
-			Name: t,
-			Type: models.TagTypesAvail["language"],
-		})
-	}
-	for _, t := range mediaConf.Moods {
-		tags = append(tags, models.Tag{
-			Name: t,
-			Type: models.TagTypesAvail["mood"],
-		})
-	}
-
-	media := models.Media{
-		Name:       mediaConf.Name,
-		Author:     mediaConf.Author,
-		Duration:   mediaConf.Duration,
-		Tags:       tags,
-		SourcePath: mediaConf.SourcePath,
-	}
+	media := mediaConf.ToMedia()
 
 	tagAvail, err := l.libClient.AllTags(ctx, token)
 	if err != nil {
@@ -221,7 +165,7 @@ func (l *library) LinkDownload(ctx context.Context, id int64, link string) (mode
 	if yaSong.MatchString(link) {
 		res.Type = models.ResSong
 
-		media, err := l.linkTrack(ctx, link)
+		mediaConf, err := l.linkTrack(ctx, id, link)
 		if err != nil {
 			log.Error(
 				"failed to handle track",
@@ -230,7 +174,7 @@ func (l *library) LinkDownload(ctx context.Context, id int64, link string) (mode
 			return models.LinkDownloadResult{}, fmt.Errorf("%s: %w", op, err)
 		}
 
-		res.Media = media
+		res.MediaConf = mediaConf
 	} else if yaPlaylist.MatchString(link) {
 		res.Type = models.ResPlaylist
 
@@ -254,11 +198,12 @@ func (l *library) LinkDownload(ctx context.Context, id int64, link string) (mode
 	return res, nil
 }
 
-func (l *library) linkTrack(ctx context.Context, url string) (models.Media, error) {
+func (l *library) linkTrack(ctx context.Context, id int64, url string) (models.MediaConfig, error) {
 	const op = "library.linkTrack"
 
 	log := l.log.With(
 		slog.String("op", op),
+		slog.Int64("userId", id),
 	)
 
 	trackId, albumId := exctractTrackInfo(url)
@@ -271,7 +216,7 @@ func (l *library) linkTrack(ctx context.Context, url string) (models.Media, erro
 			slog.String("albumId", albumId),
 			sl.Err(err),
 		)
-		return models.Media{}, fmt.Errorf("%s: %w", op, err)
+		return models.MediaConfig{}, fmt.Errorf("%s: %w", op, err)
 	}
 	if album.Err != nil {
 		log.Error(
@@ -279,7 +224,7 @@ func (l *library) linkTrack(ctx context.Context, url string) (models.Media, erro
 			slog.String("albumId", albumId),
 			slog.String("error", *album.Err),
 		)
-		return models.Media{}, fmt.Errorf("%s: %w", op, err)
+		return models.MediaConfig{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	index := slices.IndexFunc(album.Tracks, func(t yamodels.Track) bool {
@@ -295,14 +240,29 @@ func (l *library) linkTrack(ctx context.Context, url string) (models.Media, erro
 			slog.String("trackId", track.Id),
 			sl.Err(err),
 		)
-		return models.Media{}, fmt.Errorf("%s: %w", op, err)
+		return models.MediaConfig{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return models.Media{
+	var tag models.MediaFormat
+
+	switch track.Format {
+	case yamodels.YaMusicFormat:
+		tag = models.Song
+	case yamodels.YaPodcastFormat:
+		tag = models.Podcast
+	}
+
+	author := ""
+	if len(track.Artists) > 0 {
+		author = track.Artists[0].Name
+	}
+
+	return models.MediaConfig{
 		Name:       track.Title,
-		Author:     track.Artists[0].Name,
+		Author:     author,
 		Duration:   track.Duration,
 		SourcePath: filePath,
+		Format:     tag,
 	}, nil
 }
 
@@ -435,12 +395,14 @@ func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownl
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
+	media := res.MediaConf.ToMedia()
+
 	switch res.Type {
 	case models.ResSong:
-		if err := l.libClient.NewMedia(ctx, token, res.Media); err != nil {
+		if err := l.libClient.NewMedia(ctx, token, media); err != nil {
 			log.Error(
 				"failed to upload media",
-				slog.String("name", res.Media.Name),
+				slog.String("name", media.Name),
 				sl.Err(err),
 			)
 			return fmt.Errorf("%s: %w", op, err)

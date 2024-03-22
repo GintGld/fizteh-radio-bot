@@ -48,9 +48,9 @@ const (
 )
 
 type LinkDownloadResult struct {
-	Type     ResultType
-	Media    Media
-	Playlist Playlist
+	Type      ResultType
+	MediaConf MediaConfig
+	Playlist  Playlist
 }
 
 type ResultType int
@@ -141,4 +141,63 @@ type segmentResponse struct {
 	BeginCut  time.Duration `json:"beginCut"`
 	StopCut   time.Duration `json:"stopCut"`
 	Protected bool          `json:"protected"`
+}
+
+func (conf MediaConfig) ToMedia() Media {
+	tags := make(TagList, 0,
+		1+len(conf.Playlists)+
+			len(conf.Podcasts)+
+			len(conf.Genres)+
+			len(conf.Languages)+
+			len(conf.Moods),
+	)
+	switch conf.Format {
+	case Song:
+		tags = append(tags, Tag{
+			Name: "song",
+			Type: TagTypesAvail["format"],
+		})
+	case Podcast:
+		tags = append(tags, Tag{
+			Name: "podcast",
+			Type: TagTypesAvail["format"],
+		})
+	}
+	for _, t := range conf.Playlists {
+		tags = append(tags, Tag{
+			Name: t,
+			Type: TagTypesAvail["playlist"],
+		})
+	}
+	for _, t := range conf.Podcasts {
+		tags = append(tags, Tag{
+			Name: t,
+			Type: TagTypesAvail["podcast"],
+		})
+	}
+	for _, t := range conf.Genres {
+		tags = append(tags, Tag{
+			Name: t,
+			Type: TagTypesAvail["genre"],
+		})
+	}
+	for _, t := range conf.Languages {
+		tags = append(tags, Tag{
+			Name: t,
+			Type: TagTypesAvail["language"],
+		})
+	}
+	for _, t := range conf.Moods {
+		tags = append(tags, Tag{
+			Name: t,
+			Type: TagTypesAvail["mood"],
+		})
+	}
+	return Media{
+		Name:       conf.Name,
+		Author:     conf.Author,
+		Duration:   conf.Duration,
+		Tags:       tags,
+		SourcePath: conf.SourcePath,
+	}
 }

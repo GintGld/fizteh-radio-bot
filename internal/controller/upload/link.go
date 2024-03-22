@@ -76,20 +76,14 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 
 	switch res.Type {
 	case localModels.ResSong:
-		conf := localModels.MediaConfig{
-			Name:       res.Media.Name,
-			Author:     res.Media.Author,
-			Duration:   res.Media.Duration,
-			SourcePath: res.Media.SourcePath,
-		}
 
-		u.mediaConfigStorage.Set(chatId, conf)
+		u.mediaConfigStorage.Set(chatId, res.MediaConf)
 
 		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:      chatId,
 			MessageID:   u.msgIdStorage.Get(chatId),
-			Text:        u.mediaConfRepr(conf),
-			ReplyMarkup: u.mediaConfMarkup(conf),
+			Text:        u.mediaConfRepr(res.MediaConf),
+			ReplyMarkup: u.mediaConfMarkup(res.MediaConf),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
 			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))

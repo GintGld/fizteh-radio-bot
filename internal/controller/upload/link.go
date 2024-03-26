@@ -41,6 +41,22 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 
 	msg := update.Message.Text
 
+	inProgressMsg, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: chatId,
+		Text:   ctr.InProgress,
+	})
+	if err != nil {
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+	}
+	defer func() {
+		if _, err := b.DeleteMessages(ctx, &bot.DeleteMessagesParams{
+			ChatID:     chatId,
+			MessageIDs: []int{update.Message.ID, inProgressMsg.ID},
+		}); err != nil {
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		}
+	}()
+
 	res, err := u.mediaUpload.LinkDownload(ctx, chatId, msg)
 	if err != nil {
 		// Handle more errors.
@@ -66,13 +82,6 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 
 	u.session.Redirect(chatId, ctr.NullStatus)
 	u.linkDownloadResStorage.Set(chatId, res)
-
-	if _, err := b.DeleteMessage(ctx, &bot.DeleteMessageParams{
-		ChatID:    chatId,
-		MessageID: update.Message.ID,
-	}); err != nil {
-		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
-	}
 
 	switch res.Type {
 	case localModels.ResSong:

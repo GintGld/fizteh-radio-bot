@@ -92,6 +92,9 @@ const (
 	// "/help" command
 	HelpMessage = "Здесь будет большое описание функционала (потом)."
 
+	// in progress
+	InProgress = "Работаю..."
+
 	// Unknown user
 	ErrUnknown = "Ты кто, сталкер?"
 

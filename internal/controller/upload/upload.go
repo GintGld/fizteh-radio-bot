@@ -139,6 +139,22 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 
 	var err error
 
+	inProgressMsg, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: chatId,
+		Text:   ctr.InProgress,
+	})
+	if err != nil {
+		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+	}
+	defer func() {
+		if _, err := b.DeleteMessage(ctx, &bot.DeleteMessageParams{
+			ChatID:    chatId,
+			MessageID: inProgressMsg.ID,
+		}); err != nil {
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		}
+	}()
+
 	switch u.isPlaylistStorage.Get(chatId) {
 	case true:
 		err = u.mediaUpload.LinkUpload(ctx, chatId, u.linkDownloadResStorage.Get(chatId))

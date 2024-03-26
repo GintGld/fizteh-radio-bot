@@ -28,6 +28,7 @@ type Playlist struct {
 }
 
 type MediaConfig struct {
+	ID         int64
 	Name       string
 	Author     string
 	Duration   time.Duration
@@ -195,6 +196,7 @@ func (conf MediaConfig) ToMedia() Media {
 		})
 	}
 	return Media{
+		ID:         conf.ID,
 		Name:       conf.Name,
 		Author:     conf.Author,
 		Duration:   conf.Duration,
@@ -234,6 +236,7 @@ func (m Media) ToConfig() MediaConfig {
 	}
 
 	return MediaConfig{
+		ID:        m.ID,
 		Name:      m.Name,
 		Author:    m.Author,
 		Duration:  m.Duration,

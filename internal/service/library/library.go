@@ -67,7 +67,7 @@ func New(
 	return l
 }
 
-func (l *library) Search(ctx context.Context, id int64, filter models.MediaFilter) ([]models.Media, error) {
+func (l *library) Search(ctx context.Context, id int64, filter models.MediaFilter) ([]models.MediaConfig, error) {
 	const op = "library.Search"
 
 	log := l.log.With(
@@ -81,7 +81,7 @@ func (l *library) Search(ctx context.Context, id int64, filter models.MediaFilte
 			"failed to get token",
 			sl.Err(err),
 		)
-		return []models.Media{}, fmt.Errorf("%s: %w", op, err)
+		return []models.MediaConfig{}, fmt.Errorf("%s: %w", op, err)
 	}
 
 	res, err := l.libClient.Search(ctx, token, filter)
@@ -90,10 +90,15 @@ func (l *library) Search(ctx context.Context, id int64, filter models.MediaFilte
 			"failed to get library",
 			sl.Err(err),
 		)
-		return []models.Media{}, fmt.Errorf("%s: %w", op, err)
+		return []models.MediaConfig{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return res, nil
+	configs := make([]models.MediaConfig, 0, len(res))
+	for _, m := range res {
+		configs = append(configs, m.ToConfig())
+	}
+
+	return configs, nil
 }
 
 func (l *library) NewMedia(ctx context.Context, id int64, mediaConf models.MediaConfig) error {

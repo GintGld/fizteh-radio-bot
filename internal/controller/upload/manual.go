@@ -131,7 +131,7 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
 		MessageID:   u.msgIdStorage.Get(chatId),
-		Text:        u.mediaConfRepr(conf),
+		Text:        conf.String(),
 		ReplyMarkup: u.mediaConfMarkup(conf),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {

@@ -27,13 +27,13 @@ func (f *Filler) Login(_ context.Context, _ int64, _, _ string) error {
 	return nil
 }
 
-func (f *Filler) Search(_ context.Context, _ int64, filter models.MediaFilter) ([]models.Media, error) {
+func (f *Filler) Search(_ context.Context, _ int64, filter models.MediaFilter) ([]models.MediaConfig, error) {
 	respSize := rand.Intn(filter.MaxRespLen)
 
-	res := make([]models.Media, respSize)
+	res := make([]models.MediaConfig, respSize)
 
 	for i := 0; i < respSize; i++ {
-		res[i] = random.Media()
+		res[i] = random.Media().ToConfig()
 	}
 
 	return res, nil

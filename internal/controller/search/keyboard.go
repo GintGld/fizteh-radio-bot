@@ -11,6 +11,7 @@ const (
 	butMsgPodcast      = "Подкасты"
 	butMsgSong         = "Песни"
 	butMsgPlaylist     = "Плейлисты"
+	butMsgJingle       = "Джинглы"
 	butMsgPodcasts     = "Подкасты"
 	butMsgGenre        = "Жанры"
 	butMsgLanguage     = "Язык"
@@ -26,11 +27,27 @@ const (
 )
 
 func (s *search) mainMenuMarkup(opt searchOption) models.InlineKeyboardMarkup {
-	msgFormat := butMsgSong
-	msgFormatSelect := butMsgPlaylist
-	if opt.format == formatPodcast {
+	// msgFormat := butMsgSong
+	// msgFormatSelect := butMsgPlaylist
+	// if opt.format == formatPodcast {
+	// 	msgFormat = butMsgPodcast
+	// 	msgFormatSelect = butMsgPodcasts
+	// }
+
+	var msgFormat, msgFormatSelect, msgCallback string
+	switch opt.format {
+	case formatSong:
+		msgFormat = butMsgSong
+		msgFormatSelect = butMsgPlaylist
+		msgCallback = "podcast-playlist"
+	case formatPodcast:
 		msgFormat = butMsgPodcast
 		msgFormatSelect = butMsgPodcasts
+		msgCallback = "podcast-playlist"
+	case formatJingle:
+		msgFormat = butMsgJingle
+		msgFormatSelect = "\t"
+		msgCallback = ""
 	}
 
 	return models.InlineKeyboardMarkup{
@@ -40,7 +57,7 @@ func (s *search) mainMenuMarkup(opt searchOption) models.InlineKeyboardMarkup {
 				{Text: msgFormat, CallbackData: s.router.PathPrefixState(cmdUpdate, "format")},
 			},
 			{
-				{Text: msgFormatSelect, CallbackData: s.router.PathPrefixState(cmdUpdate, "podcast-playlist")},
+				{Text: msgFormatSelect, CallbackData: s.router.PathPrefixState(cmdUpdate, msgCallback)},
 				{Text: butMsgGenre, CallbackData: s.router.PathPrefixState(cmdUpdate, "genre")},
 			},
 			{

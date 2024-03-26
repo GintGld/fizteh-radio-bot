@@ -3,8 +3,6 @@ package upload
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
 
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
 	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/split"
@@ -39,15 +37,17 @@ func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.
 			conf.Format = localModels.Podcast
 			conf.Playlists = nil
 		case localModels.Podcast:
-			conf.Format = localModels.Song
+			conf.Format = localModels.Jingle
 			conf.Podcasts = nil
+		case localModels.Jingle:
+			conf.Format = localModels.Song
 		}
 		u.mediaConfigStorage.Set(chatId, conf)
 
 		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:      chatId,
 			MessageID:   u.msgIdStorage.Get(chatId),
-			Text:        u.mediaConfRepr(conf),
+			Text:        conf.String(),
 			ReplyMarkup: u.mediaConfMarkup(conf),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
@@ -80,7 +80,7 @@ func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.
 		conf.Languages = nil
 		conf.Moods = nil
 		u.mediaConfigStorage.Set(chatId, conf)
-		msg = u.mediaConfRepr(conf)
+		msg = conf.String()
 
 		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:      chatId,
@@ -91,6 +91,8 @@ func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.
 		}); err != nil {
 			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
+		return
+	default:
 		return
 	}
 
@@ -156,7 +158,7 @@ func (u *upload) getSettingNewData(ctx context.Context, b *bot.Bot, update *mode
 	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
 		MessageID:   u.msgIdStorage.Get(chatId),
-		Text:        u.mediaConfRepr(conf),
+		Text:        conf.String(),
 		ReplyMarkup: u.mediaConfMarkup(conf),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
@@ -176,37 +178,10 @@ func (u *upload) cancelSubTask(ctx context.Context, b *bot.Bot, update *models.U
 	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
 		MessageID:   u.msgIdStorage.Get(chatId),
-		Text:        u.mediaConfRepr(conf),
+		Text:        conf.String(),
 		ReplyMarkup: u.mediaConfMarkup(conf),
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
 		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
-}
-
-func (u *upload) mediaConfRepr(conf localModels.MediaConfig) string {
-	var b strings.Builder
-
-	b.WriteString("<b>Композиция</b>\n")
-	b.WriteString(fmt.Sprintf("<b>Название:</b> %s\n", conf.Name))
-	b.WriteString(fmt.Sprintf("<b>Автор:</b> %s\n", conf.Author))
-	b.WriteString(fmt.Sprintf("<b>Длительность:</b> %s\n", conf.Duration.Round(time.Second).String()))
-
-	if len(conf.Podcasts) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Подкасты:</b> %s\n", strings.Join(conf.Podcasts, ", ")))
-	}
-	if len(conf.Playlists) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Плейлисты:</b> %s\n", strings.Join(conf.Playlists, ", ")))
-	}
-	if len(conf.Genres) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Жанры:</b> %s\n", strings.Join(conf.Genres, ", ")))
-	}
-	if len(conf.Languages) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Языки:</b> %s\n", strings.Join(conf.Languages, ", ")))
-	}
-	if len(conf.Moods) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Настроение:</b> %s\n", strings.Join(conf.Moods, ", ")))
-	}
-
-	return b.String()
 }

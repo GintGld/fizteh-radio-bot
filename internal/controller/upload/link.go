@@ -91,7 +91,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:      chatId,
 			MessageID:   u.msgIdStorage.Get(chatId),
-			Text:        u.mediaConfRepr(res.MediaConf),
+			Text:        res.MediaConf.String(),
 			ReplyMarkup: u.mediaConfMarkup(res.MediaConf),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {

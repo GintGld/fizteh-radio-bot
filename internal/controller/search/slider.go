@@ -42,7 +42,7 @@ func (s *search) updateSlide(ctx context.Context, b *bot.Bot, update *models.Upd
 	msg, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
 		MessageID:   msgId,
-		Text:        s.mediaRepr(res[id-1]),
+		Text:        res[id-1].String(),
 		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: s.mediaSliderMarkup(id, len(res)),
 	})
@@ -63,7 +63,7 @@ func (s *search) canceledDateTimeSelector(ctx context.Context, b *bot.Bot, mes m
 
 	msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      chatId,
-		Text:        s.mediaRepr(res[id-1]),
+		Text:        res[id-1].String(),
 		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: s.mediaSliderMarkup(id, len(res)),
 	})

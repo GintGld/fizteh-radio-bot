@@ -12,13 +12,13 @@ const (
 	butMsgName     = "Название"
 	butMsgAuthor   = "Автор"
 	butMsgGenre    = "Жанр"
-	butMsgFormat   = "Формат"
 	butMsgPlaylist = "Плейлисты"
 	butMsgPodcast  = "Подкаст"
 	butMsgPodcasts = "Подкасты"
 	butMsgLang     = "Язык"
 	butMsgMood     = "Настроение"
 	butMsgSong     = "Песня"
+	butMsgJingle   = "Джингл"
 	butMsgReset    = "Сбросить"
 
 	butMsgSubmit = "Загрузить"
@@ -37,14 +37,20 @@ func (u *upload) mainMenuMarkup() models.InlineKeyboardMarkup {
 }
 
 func (u *upload) mediaConfMarkup(conf localModels.MediaConfig) models.InlineKeyboardMarkup {
-	var target, form string
+	var target, form, formCallback string
 	switch conf.Format {
 	case localModels.Podcast:
 		target = butMsgPodcast
 		form = butMsgPodcasts
+		formCallback = "podcast-playlist"
 	case localModels.Song:
 		target = butMsgSong
 		form = butMsgPlaylist
+		formCallback = "podcast-playlist"
+	case localModels.Jingle:
+		target = butMsgJingle
+		form = "\t"
+		formCallback = ""
 	}
 
 	return models.InlineKeyboardMarkup{
@@ -55,7 +61,7 @@ func (u *upload) mediaConfMarkup(conf localModels.MediaConfig) models.InlineKeyb
 			},
 			{
 				{Text: target, CallbackData: u.router.PathPrefixState(cmdSettings, "format")},
-				{Text: form, CallbackData: u.router.PathPrefixState(cmdSettings, "podcast-playlist")},
+				{Text: form, CallbackData: u.router.PathPrefixState(cmdSettings, formCallback)},
 			},
 			{
 				{Text: butMsgGenre, CallbackData: u.router.PathPrefixState(cmdSettings, "genre")},

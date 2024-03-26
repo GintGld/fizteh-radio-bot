@@ -26,12 +26,12 @@ const (
 )
 
 type picker struct {
-	router       *ctr.Router
-	schedule     ScheduleAdd
-	session      ctr.Session
-	onCancel     ctr.OnCancelHandler
-	onError      bot.ErrorsHandler
-	mediaStorage storage.Storage[localModels.Media]
+	router           *ctr.Router
+	schedule         ScheduleAdd
+	session          ctr.Session
+	onCancel         ctr.OnCancelHandler
+	onError          bot.ErrorsHandler
+	mediaConfStorage storage.Storage[localModels.MediaConfig]
 
 	dateStorage  storage.Storage[time.Time]
 	msgIdStorage storage.Storage[int]
@@ -48,7 +48,7 @@ func Register(
 	onCancel ctr.OnCancelHandler,
 	onError bot.ErrorsHandler,
 	msgIdStorage storage.Storage[int],
-	mediaStorage storage.Storage[localModels.Media],
+	mediaConfStorage storage.Storage[localModels.MediaConfig],
 ) {
 	p := &picker{
 		router:   router,
@@ -57,9 +57,9 @@ func Register(
 		onCancel: onCancel,
 		onError:  onError,
 
-		dateStorage:  storage.New[time.Time](),
-		msgIdStorage: msgIdStorage,
-		mediaStorage: mediaStorage,
+		dateStorage:      storage.New[time.Time](),
+		msgIdStorage:     msgIdStorage,
+		mediaConfStorage: mediaConfStorage,
 	}
 
 	router.RegisterCallback(cmdBase, p.init)
@@ -129,12 +129,12 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 
 	date := time.Date(y, m, d, hour, minute, 0, 0, time.Local)
 
-	media := p.mediaStorage.Get(chatId)
+	conf := p.mediaConfStorage.Get(chatId)
 	segm := localModels.Segment{
-		Media:     media,
+		Media:     conf.ToMedia(),
 		Start:     date,
 		BeginCut:  0,
-		StopCut:   media.Duration,
+		StopCut:   conf.Duration,
 		Protected: true,
 	}
 	if err := p.schedule.NewSegment(ctx, chatId, segm); err != nil {
@@ -145,7 +145,7 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:    chatId,
 		MessageID: p.msgIdStorage.Get(chatId),
-		Text:      p.successMsg(date, date.Add(media.Duration)),
+		Text:      p.successMsg(date, date.Add(conf.Duration)),
 	}); err != nil {
 		p.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}

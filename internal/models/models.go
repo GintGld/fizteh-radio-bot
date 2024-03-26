@@ -2,6 +2,8 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -46,7 +48,21 @@ type MediaFormat int
 const (
 	Song MediaFormat = iota
 	Podcast
+	Jingle
 )
+
+func (m MediaFormat) String() string {
+	switch m {
+	case Song:
+		return "песня"
+	case Podcast:
+		return "подкаст"
+	case Jingle:
+		return "джингл"
+	default:
+		return ""
+	}
+}
 
 type LinkDownloadResult struct {
 	Type      ResultType
@@ -164,6 +180,11 @@ func (conf MediaConfig) ToMedia() Media {
 			Name: "podcast",
 			Type: TagTypesAvail["format"],
 		})
+	case Jingle:
+		tags = append(tags, Tag{
+			Name: "jingle",
+			Type: TagTypesAvail["format"],
+		})
 	}
 	for _, t := range conf.Playlists {
 		tags = append(tags, Tag{
@@ -221,6 +242,8 @@ func (m Media) ToConfig() MediaConfig {
 				format = Song
 			case "podcast":
 				format = Podcast
+			case "jingle":
+				format = Jingle
 			}
 		case "playlist":
 			Playlists = append(Playlists, t.Name)
@@ -247,4 +270,32 @@ func (m Media) ToConfig() MediaConfig {
 		Languages: Languages,
 		Moods:     Moods,
 	}
+}
+
+func (conf MediaConfig) String() string {
+	var b strings.Builder
+
+	b.WriteString("<b>Композиция</b>\n")
+	b.WriteString(fmt.Sprintf("<b>Название:</b> %s\n", conf.Name))
+	b.WriteString(fmt.Sprintf("<b>Автор:</b> %s\n", conf.Author))
+	b.WriteString(fmt.Sprintf("<b>Формат:</b> %s\n", conf.Format))
+	b.WriteString(fmt.Sprintf("<b>Длительность:</b> %s\n", conf.Duration.Round(time.Second).String()))
+
+	if len(conf.Podcasts) > 0 {
+		b.WriteString(fmt.Sprintf("<b>Подкасты:</b> %s\n", strings.Join(conf.Podcasts, ", ")))
+	}
+	if len(conf.Playlists) > 0 {
+		b.WriteString(fmt.Sprintf("<b>Плейлисты:</b> %s\n", strings.Join(conf.Playlists, ", ")))
+	}
+	if len(conf.Genres) > 0 {
+		b.WriteString(fmt.Sprintf("<b>Жанры:</b> %s\n", strings.Join(conf.Genres, ", ")))
+	}
+	if len(conf.Languages) > 0 {
+		b.WriteString(fmt.Sprintf("<b>Языки:</b> %s\n", strings.Join(conf.Languages, ", ")))
+	}
+	if len(conf.Moods) > 0 {
+		b.WriteString(fmt.Sprintf("<b>Настроение:</b> %s\n", strings.Join(conf.Moods, ", ")))
+	}
+
+	return b.String()
 }

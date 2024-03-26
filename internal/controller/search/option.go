@@ -34,8 +34,10 @@ func (s *search) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 			opt.format = formatPodcast
 			opt.playlists = nil
 		case formatPodcast:
-			opt.format = formatSong
+			opt.format = formatJingle
 			opt.podcasts = nil
+		case formatJingle:
+			opt.format = formatSong
 		}
 		s.searchStorage.Set(chatId, opt)
 		id := s.msgIdStorage.Get(chatId)
@@ -83,6 +85,8 @@ func (s *search) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 		}); err != nil {
 			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
+		return
+	default:
 		return
 	}
 

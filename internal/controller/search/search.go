@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -45,8 +44,8 @@ type search struct {
 	searchStorage       storage.Storage[searchOption]
 	targetUpdateStorage storage.Storage[string]
 	mediaPage           storage.Storage[int]
-	mediaResults        storage.Storage[[]localModels.Media]
-	mediaSelected       storage.Storage[localModels.Media]
+	mediaResults        storage.Storage[[]localModels.MediaConfig]
+	mediaSelected       storage.Storage[localModels.MediaConfig]
 	msgIdStorage        storage.Storage[int]
 }
 
@@ -55,7 +54,7 @@ type Auth interface {
 }
 
 type LibrarySearch interface {
-	Search(ctx context.Context, id int64, filter localModels.MediaFilter) ([]localModels.Media, error)
+	Search(ctx context.Context, id int64, filter localModels.MediaFilter) ([]localModels.MediaConfig, error)
 }
 
 type searchOption struct {
@@ -73,7 +72,24 @@ type searchFormat int
 const (
 	formatSong searchFormat = iota
 	formatPodcast
+	formatJingle
 )
+
+func (opt searchOption) ToFilter() localModels.MediaFilter {
+	tags := make([]string, 0)
+	tags = append(tags, opt.format.String())
+	tags = append(tags, opt.playlists...)
+	tags = append(tags, opt.genres...)
+	tags = append(tags, opt.languages...)
+	tags = append(tags, opt.moods...)
+
+	return localModels.MediaFilter{
+		Name:       opt.nameAuthor,
+		Author:     opt.nameAuthor,
+		Tags:       tags,
+		MaxRespLen: 20,
+	}
+}
 
 func (sOpt searchFormat) String() string {
 	switch sOpt {
@@ -81,6 +97,8 @@ func (sOpt searchFormat) String() string {
 		return "song"
 	case formatPodcast:
 		return "podcast"
+	case formatJingle:
+		return "jingle"
 	default:
 		return ""
 	}
@@ -92,6 +110,8 @@ func (sOpt searchFormat) Repr() string {
 		return "песня"
 	case formatPodcast:
 		return "подкаст"
+	case formatJingle:
+		return "джингл"
 	default:
 		return ""
 	}
@@ -115,8 +135,8 @@ func Register(
 		searchStorage:       storage.New[searchOption](),
 		targetUpdateStorage: storage.New[string](),
 		mediaPage:           storage.New[int](),
-		mediaResults:        storage.New[[]localModels.Media](),
-		mediaSelected:       storage.New[localModels.Media](),
+		mediaResults:        storage.New[[]localModels.MediaConfig](),
+		mediaSelected:       storage.New[localModels.MediaConfig](),
 		msgIdStorage:        storage.New[int](),
 	}
 
@@ -213,22 +233,16 @@ func (s *search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 
 	opt := s.searchStorage.Get(chatId)
 
-	tags := make([]string, 0)
-	tags = append(tags, opt.format.String())
-	tags = append(tags, opt.playlists...)
-	tags = append(tags, opt.genres...)
-	tags = append(tags, opt.languages...)
-	tags = append(tags, opt.moods...)
-
-	res, err := s.libSearch.Search(ctx, chatId, localModels.MediaFilter{
-		Name:       opt.nameAuthor,
-		Author:     opt.nameAuthor,
-		Tags:       tags,
-		MaxRespLen: 20,
-	})
+	res, err := s.libSearch.Search(ctx, chatId, opt.ToFilter())
 	// TODO enhance errors
 	if err != nil {
-		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrorMessage,
+		}); err != nil {
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		}
+		return
 	}
 
 	if len(res) == 0 {
@@ -250,7 +264,7 @@ func (s *search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 	msg, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
 		MessageID:   s.msgIdStorage.Get(chatId),
-		Text:        s.mediaRepr(res[0]),
+		Text:        res[0].String(),
 		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: s.mediaSliderMarkup(1, len(res)),
 	})
@@ -308,61 +322,6 @@ func (s *search) filterRepr(opt searchOption) string {
 	}
 	if len(opt.moods) > 0 {
 		b.WriteString(fmt.Sprintf("<b>Настроения:</b> %s", strings.Join(opt.moods, ", ")))
-	}
-
-	return b.String()
-}
-
-// mediaRepr returns media formatted
-// for telegram message.
-func (s *search) mediaRepr(media localModels.Media) string {
-	var b strings.Builder
-
-	b.WriteString("<b>Композиция</b>\n")
-	b.WriteString(fmt.Sprintf("<b>Название:</b> %s\n", media.Name))
-	b.WriteString(fmt.Sprintf("<b>Автор:</b> %s\n", media.Author))
-	b.WriteString(fmt.Sprintf("<b>Длительность:</b> %s\n", media.Duration.Round(time.Second).String()))
-
-	var podcasts, playlists, genres, languages, moods []string
-	var format string
-	for _, tag := range media.Tags {
-		switch tag.Type.Name {
-		case "podcast":
-			podcasts = append(podcasts, tag.Name)
-		case "playlist":
-			playlists = append(playlists, tag.Name)
-		case "genre":
-			genres = append(genres, tag.Name)
-		case "language":
-			languages = append(languages, tag.Name)
-		case "mood":
-			moods = append(moods, tag.Name)
-		case "format":
-			format = tag.Name
-		}
-	}
-	switch format {
-	case "song":
-		format = "песня"
-	case "podcast":
-		format = "подкаст"
-	}
-
-	b.WriteString(fmt.Sprintf("<b>Формат:</b> %s\n", format))
-	if len(podcasts) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Подкасты:</b> %s\n", strings.Join(podcasts, ", ")))
-	}
-	if len(playlists) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Плейлисты:</b> %s\n", strings.Join(playlists, ", ")))
-	}
-	if len(genres) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Жанры:</b> %s\n", strings.Join(genres, ", ")))
-	}
-	if len(languages) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Языки:</b> %s\n", strings.Join(languages, ", ")))
-	}
-	if len(moods) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Настроение:</b> %s\n", strings.Join(moods, ", ")))
 	}
 
 	return b.String()

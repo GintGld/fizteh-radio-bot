@@ -14,7 +14,7 @@ import (
 func (u *upload) updateSettings(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "upload.updateSettings"
 
-	u.callbackAnswer(ctx, b, update.CallbackQuery)
+	u.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -169,7 +169,7 @@ func (u *upload) getSettingNewData(ctx context.Context, b *bot.Bot, update *mode
 func (u *upload) cancelSubTask(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "upload.cancelSubTask"
 
-	u.callbackAnswer(ctx, b, update.CallbackQuery)
+	u.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 

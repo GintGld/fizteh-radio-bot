@@ -26,6 +26,8 @@ const (
 )
 
 type picker struct {
+	ctr.CallbackAnswerer
+
 	router           *ctr.Router
 	schedule         ScheduleAdd
 	session          ctr.Session
@@ -70,7 +72,7 @@ func Register(
 func (p *picker) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "picker.init"
 
-	p.callbackAnswer(ctx, b, update.CallbackQuery)
+	p.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -116,7 +118,7 @@ func (p *picker) catchDatePicker(ctx context.Context, b *bot.Bot, mes models.May
 func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "picker.submitDateTime"
 
-	p.callbackAnswer(ctx, b, update.CallbackQuery)
+	p.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -154,7 +156,7 @@ func (p *picker) submitDateTime(ctx context.Context, b *bot.Bot, update *models.
 func (p *picker) cancelTimePicker(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "picker.cancelTimePicker"
 
-	p.callbackAnswer(ctx, b, update.CallbackQuery)
+	p.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -171,23 +173,6 @@ func (p *picker) cancelTimePicker(ctx context.Context, b *bot.Bot, update *model
 		),
 	}); err != nil {
 		p.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
-	}
-}
-
-func (p *picker) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
-	const op = "picker.callbackAnswer"
-
-	chatId := callbackQuery.Message.Message.Chat.ID
-
-	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: callbackQuery.ID,
-	})
-	if err != nil {
-		p.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
-		return
-	}
-	if !ok {
-		p.onError(fmt.Errorf("%s [%d]: %s", op, chatId, "callback answer failed"))
 	}
 }
 

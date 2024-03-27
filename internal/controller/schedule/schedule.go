@@ -27,6 +27,8 @@ const (
 )
 
 type schedule struct {
+	ctr.CallbackAnswerer
+
 	router  *ctr.Router
 	auth    Auth
 	sch     Schedule
@@ -126,7 +128,7 @@ func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) 
 func (s *schedule) update(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "schedule.update"
 
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
+	s.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -164,7 +166,7 @@ func (s *schedule) update(ctx context.Context, b *bot.Bot, update *models.Update
 func (s *schedule) newPage(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "schedule.newPage"
 
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
+	s.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -195,24 +197,7 @@ func (s *schedule) newPage(ctx context.Context, b *bot.Bot, update *models.Updat
 }
 
 func (s *schedule) nullHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-}
-
-func (s *schedule) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
-	const op = "schedule.callbackAnswer"
-
-	chatId := callbackQuery.Message.Message.Chat.ID
-
-	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: callbackQuery.ID,
-	})
-	if err != nil {
-		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
-		return
-	}
-	if !ok {
-		s.onError(fmt.Errorf("%s [%d]: %s", op, chatId, "callback answer failed"))
-	}
+	s.CallbackAnswer(ctx, b, update.CallbackQuery)
 }
 
 func (s *schedule) scheduleFormat(sch []localModels.Segment, page int) string {

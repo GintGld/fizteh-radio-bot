@@ -27,6 +27,8 @@ const (
 )
 
 type autodj struct {
+	ctr.CallbackAnswerer
+
 	router  *ctr.Router
 	auth    Auth
 	dj      AutoDJ
@@ -134,7 +136,7 @@ func (a *autodj) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 func (a *autodj) getCurrConf(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "autodj.getCurrConf"
 
-	a.callbackAnswer(ctx, b, update.CallbackQuery)
+	a.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -168,7 +170,7 @@ func (a *autodj) getCurrConf(ctx context.Context, b *bot.Bot, update *models.Upd
 func (a *autodj) send(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "autodj.send"
 
-	a.callbackAnswer(ctx, b, update.CallbackQuery)
+	a.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -195,7 +197,7 @@ func (a *autodj) send(ctx context.Context, b *bot.Bot, update *models.Update) {
 func (a *autodj) update(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "autodj.update"
 
-	a.callbackAnswer(ctx, b, update.CallbackQuery)
+	a.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -231,7 +233,7 @@ func (a *autodj) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 func (a *autodj) startStop(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "autodj.startStop"
 
-	a.callbackAnswer(ctx, b, update.CallbackQuery)
+	a.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -323,7 +325,7 @@ func (a *autodj) getUpdate(ctx context.Context, b *bot.Bot, update *models.Updat
 func (a *autodj) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "autodj.reset"
 
-	a.callbackAnswer(ctx, b, update.CallbackQuery)
+	a.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -353,24 +355,7 @@ func (a *autodj) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
 }
 
 func (a *autodj) nullHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	a.callbackAnswer(ctx, b, update.CallbackQuery)
-}
-
-func (a *autodj) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
-	const op = "autodj.callBackAnswer"
-
-	chatId := callbackQuery.Message.Message.Chat.ID
-
-	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: callbackQuery.ID,
-	})
-	if err != nil {
-		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
-		return
-	}
-	if !ok {
-		a.onError(fmt.Errorf("%s [%d]: %s", op, chatId, "callback answer failed"))
-	}
+	a.CallbackAnswer(ctx, b, update.CallbackQuery)
 }
 
 func (a *autodj) configRepr(conf localModels.AutoDJInfo) string {

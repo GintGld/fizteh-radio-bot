@@ -38,6 +38,8 @@ const (
 )
 
 type upload struct {
+	ctr.CallbackAnswerer
+
 	router      *ctr.Router
 	auth        Auth
 	mediaUpload MediaUpload
@@ -135,7 +137,7 @@ func (u *upload) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "upload.submit"
 
-	u.callbackAnswer(ctx, b, update.CallbackQuery)
+	u.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -192,7 +194,7 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 func (u *upload) returnToMainMenu(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "uplaod.returnToMainMenu"
 
-	u.callbackAnswer(ctx, b, update.CallbackQuery)
+	u.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -211,22 +213,5 @@ func (u *upload) returnToMainMenu(ctx context.Context, b *bot.Bot, update *model
 }
 
 func (u *upload) nullHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	u.callbackAnswer(ctx, b, update.CallbackQuery)
-}
-
-func (u *upload) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
-	const op = "upload.callbackAnswer"
-
-	chatId := callbackQuery.Message.Message.Chat.ID
-
-	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: callbackQuery.ID,
-	})
-	if err != nil {
-		u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
-		return
-	}
-	if !ok {
-		u.onError(fmt.Errorf("%s [%d]: %s", op, chatId, "callback answer failed"))
-	}
+	u.CallbackAnswer(ctx, b, update.CallbackQuery)
 }

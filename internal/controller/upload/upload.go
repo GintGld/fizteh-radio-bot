@@ -2,6 +2,7 @@ package upload
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-telegram/bot"
@@ -10,6 +11,7 @@ import (
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
 	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/storage"
 	localModels "github.com/GintGld/fizteh-radio-bot/internal/models"
+	"github.com/GintGld/fizteh-radio-bot/internal/service"
 )
 
 // FIXME delete custom setting and use special controller
@@ -59,7 +61,7 @@ type Auth interface {
 }
 
 type MediaUpload interface {
-	NewMedia(ctx context.Context, id int64, media localModels.MediaConfig) error
+	NewMedia(ctx context.Context, id int64, media localModels.MediaConfig) (int64, error)
 	LinkDownload(ctx context.Context, id int64, link string) (localModels.LinkDownloadResult, error)
 	LinkUpload(ctx context.Context, id int64, res localModels.LinkDownloadResult) error
 }
@@ -163,11 +165,22 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 	case true:
 		err = u.mediaUpload.LinkUpload(ctx, chatId, u.linkDownloadResStorage.Get(chatId))
 	case false:
-		err = u.mediaUpload.NewMedia(ctx, chatId, u.mediaConfigStorage.Get(chatId))
+		_, err = u.mediaUpload.NewMedia(ctx, chatId, u.mediaConfigStorage.Get(chatId))
 	}
 
 	if err != nil {
-		// handle errors
+		// TODO handle errors
+		// Media exists case.
+		if errors.Is(err, service.ErrMediaExists) {
+			if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+				ChatID:    chatId,
+				MessageID: u.msgIdStorage.Get(chatId),
+				Text:      ctr.LibUploadErrMediaAlreadyExists,
+			}); err != nil {
+				u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+			}
+			return
+		}
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,

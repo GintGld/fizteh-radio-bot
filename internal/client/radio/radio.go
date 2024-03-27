@@ -159,7 +159,7 @@ func (c *Client) Search(ctx context.Context, token jwt.Token, filter models.Medi
 	}
 }
 
-func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Media) error {
+func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Media) (int64, error) {
 	const op = "Client.NewMedia"
 
 	url := fmt.Sprintf("%s/library/media", c.addr)
@@ -170,12 +170,12 @@ func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Med
 		"tags":   media.Tags,
 	})
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	file, err := os.Open(media.SourcePath)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	defer file.Close()
 
@@ -183,35 +183,35 @@ func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Med
 	writer := multipart.NewWriter(body)
 
 	if err := writer.WriteField("media", string(jsonBytes)); err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	part, err := writer.CreateFormFile("source", media.SourcePath)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if _, err = io.Copy(part, file); err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	writer.Close()
 
 	req, err := http.NewRequest("POST", url, body)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token.Raw)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	resp, err := c.c.Do(req)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	defer resp.Body.Close()
 
 	bodyResp, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	switch resp.StatusCode {
@@ -220,21 +220,21 @@ func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Med
 			Id int64 `json:"id"`
 		}
 		if err := json.Unmarshal(bodyResp, &jsonResp); err != nil {
-			return fmt.Errorf("%s: %w", op, err)
+			return 0, fmt.Errorf("%s: %w", op, err)
 		}
-		return nil
+		return jsonResp.Id, nil
 	case 400:
 		var e HTTPError
 		if err := json.Unmarshal(bodyResp, &e); err != nil {
-			return fmt.Errorf("%s: %s", op, string(bodyResp))
+			return 0, fmt.Errorf("%s: %s", op, string(bodyResp))
 		}
-		return fmt.Errorf("%s: returned error %s", op, e.Err)
+		return 0, fmt.Errorf("%s: returned error %s", op, e.Err)
 	case 401:
-		return client.ErrNotAuthorized
+		return 0, client.ErrNotAuthorized
 	case 500:
-		return client.ErrInternalServerError
+		return 0, client.ErrInternalServerError
 	default:
-		return fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+		return 0, fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
 	}
 }
 

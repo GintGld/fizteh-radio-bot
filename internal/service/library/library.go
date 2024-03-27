@@ -2,6 +2,7 @@ package library
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -38,7 +39,8 @@ type Auth interface {
 
 type LibraryClient interface {
 	Search(ctx context.Context, token jwt.Token, filter models.MediaFilter) ([]models.Media, error)
-	NewMedia(ctx context.Context, token jwt.Token, media models.Media) error
+	Media(ctx context.Context, token jwt.Token, id int64) (models.Media, error)
+	NewMedia(ctx context.Context, token jwt.Token, media models.Media) (int64, error)
 	UpdateMedia(ctx context.Context, token jwt.Token, media models.Media) error
 	DeleteMedia(ctx context.Context, token jwt.Token, mediaId int64) error
 	AllTags(ctx context.Context, token jwt.Token) (models.TagList, error)
@@ -103,7 +105,7 @@ func (l *library) Search(ctx context.Context, id int64, filter models.MediaFilte
 	return configs, nil
 }
 
-func (l *library) NewMedia(ctx context.Context, id int64, mediaConf models.MediaConfig) error {
+func (l *library) NewMedia(ctx context.Context, id int64, mediaConf models.MediaConfig) (int64, error) {
 	const op = "library.NewMedia"
 
 	log := l.log.With(
@@ -117,46 +119,47 @@ func (l *library) NewMedia(ctx context.Context, id int64, mediaConf models.Media
 			"failed to get token",
 			sl.Err(err),
 		)
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	media := mediaConf.ToMedia()
 
-	tagAvail, err := l.libClient.AllTags(ctx, token)
-	if err != nil {
-		log.Error("failed to get available tags", sl.Err(err))
-		return fmt.Errorf("%s: %w", op, err)
-	}
-	for i, tag := range media.Tags {
-		if j := slices.IndexFunc(tagAvail, func(t models.Tag) bool {
-			return t.Name == tag.Name
-		}); j != -1 {
-			log.Debug("found", slog.Int("j", j))
-			media.Tags[i] = tagAvail[j]
-		} else {
-			log.Debug("create")
-			id, err := l.libClient.NewTag(ctx, token, tag)
-			if err != nil {
-				log.Error(
-					"failed to create tag",
-					slog.String("name", tag.Name),
-					sl.Err(err),
-				)
-				return fmt.Errorf("%s: %w", op, err)
-			}
-			media.Tags[i].ID = id
+	if err := l.recoverTagIds(ctx, token, &media); err != nil {
+		if errors.Is(err, service.ErrTagNotFound) {
+			log.Warn("media has not existing tag", slog.String("name", media.Name), slog.Any("tags", media.Tags))
+			return 0, service.ErrTagNotFound
 		}
 	}
 
-	if err := l.libClient.NewMedia(ctx, token, media); err != nil {
+	// search media with similar names and authors.
+	searchRes, err := l.Search(ctx, id, models.MediaFilter{
+		Name:       media.Name,
+		Author:     media.Author,
+		MaxRespLen: 20,
+	})
+	if err != nil {
+		log.Error("failed to make search", sl.Err(err))
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	// Check if media already exists.
+	if index := slices.IndexFunc(searchRes, func(conf models.MediaConfig) bool {
+		return conf.Name == media.Name && conf.Author == media.Author
+	}); index != -1 {
+		log.Warn("media already exists", slog.String("name", media.Name), slog.String("author", media.Author))
+		return searchRes[index].ID, service.ErrMediaExists
+	}
+
+	mediaId, err := l.libClient.NewMedia(ctx, token, media)
+	if err != nil {
 		log.Error(
 			"failed to upload media",
 			sl.Err(err),
 		)
-		return fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return nil
+	return mediaId, nil
 }
 
 func (l *library) UpdateMedia(ctx context.Context, id int64, mediaConf models.MediaConfig) error {
@@ -398,6 +401,7 @@ func (l *library) linkPlaylist(ctx context.Context, url string) (models.Playlist
 			Duration:   track.Duration,
 			SourcePath: filePath,
 			Format:     models.Song,
+			Playlists:  []string{playlist.Title},
 		})
 	}
 
@@ -473,7 +477,7 @@ func (l *library) downloadLinkTrack(ctx context.Context, id string) (string, err
 }
 
 func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownloadResult) error {
-	const op = "library.Search"
+	const op = "library.LinkUpload"
 
 	log := l.log.With(
 		slog.String("op", op),
@@ -493,7 +497,15 @@ func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownl
 
 	switch res.Type {
 	case models.ResSong:
-		if err := l.libClient.NewMedia(ctx, token, media); err != nil {
+		if _, err := l.libClient.NewMedia(ctx, token, media); err != nil {
+			if errors.Is(err, service.ErrMediaExists) {
+				log.Info(
+					"media already exists",
+					slog.String("name", media.Name),
+					slog.String("author", media.Author),
+				)
+				return service.ErrMediaExists
+			}
 			log.Error(
 				"failed to upload media",
 				slog.String("name", media.Name),
@@ -515,18 +527,73 @@ func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownl
 			return fmt.Errorf("%s: %w", op, err)
 		}
 
+	upload_loop:
 		for _, m := range res.Playlist.Values {
-			if err := l.libClient.NewMedia(ctx, token, m.ToMedia()); err != nil {
+			if id, err := l.NewMedia(ctx, id, m); err != nil {
+				// If media already exists, add new tags to it
+				if errors.Is(err, service.ErrMediaExists) {
+					log.Info(
+						"media already exists, add new tags to it",
+						slog.String("name", m.Name),
+						slog.String("author", m.Author),
+					)
+					m := m.ToMedia()
+					oldMedia, err := l.libClient.Media(ctx, token, id)
+					if err != nil {
+						log.Error("failed to get media", slog.Int64("id", id), sl.Err(err))
+						continue upload_loop
+					}
+					// add new tags
+					newTags := slices.Clone(oldMedia.Tags)
+					for _, t := range m.Tags {
+						if !slices.ContainsFunc(oldMedia.Tags, func(tInner models.Tag) bool {
+							return tInner.Name == t.Name && tInner.Type == t.Type
+						}) {
+							newTags = append(newTags, t)
+						}
+					}
+					oldMedia.Tags = newTags
+					if err := l.libClient.UpdateMedia(ctx, token, oldMedia); err != nil {
+						log.Error("failed to update media", slog.Int64("id", oldMedia.ID), sl.Err(err))
+					}
+					continue upload_loop
+				}
 				log.Error(
 					"failed to upload media",
 					slog.String("Name", m.Name),
 					slog.String("source", m.SourcePath),
 					sl.Err(err),
 				)
+				return fmt.Errorf("%s: %w", op, err)
 			}
 		}
 	}
 
+	return nil
+}
+
+func (l *library) recoverTagIds(ctx context.Context, token jwt.Token, m *models.Media) error {
+	const op = "library.recoverTagIds"
+
+	log := l.log.With(
+		slog.String("op", op),
+	)
+
+	tags, err := l.libClient.AllTags(ctx, token)
+	if err != nil {
+		log.Error("failedt to get all tags")
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	for i, t := range m.Tags {
+		if j := slices.IndexFunc(tags, func(tInner models.Tag) bool {
+			return t.Name == tInner.Name && t.Type == tInner.Type
+		}); j != -1 {
+			m.Tags[i].ID = tags[j].ID
+		} else {
+			return service.ErrTagNotFound
+		}
+	}
 	return nil
 }
 

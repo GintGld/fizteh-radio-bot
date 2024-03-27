@@ -67,6 +67,10 @@ const (
 	LibSearchUpdateAskMood     = "Введи через запятую настроения."
 	LibSearchUpdateErrEmptyMsg = "Не надо делать пустое поле..."
 
+	// "/lib/search" delete
+	LibSearchDeleteSubmit  = "Точно ли хочешь удалить?"
+	LibSearchDeleteSuccess = "Успешно удалено."
+
 	// "/lib/search/pick"
 	LibSearchPickSelecting = "Выбор даты и времени."
 

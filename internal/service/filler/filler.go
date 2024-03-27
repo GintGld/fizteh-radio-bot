@@ -47,6 +47,10 @@ func (f *Filler) UpdateMedia(_ context.Context, _ int64, _ models.MediaConfig) e
 	return nil
 }
 
+func (f *Filler) DeleteMedia(_ context.Context, _ int64, _ models.MediaConfig) error {
+	return nil
+}
+
 func (f *Filler) LinkDownload(_ context.Context, _ int64, _ string) (models.LinkDownloadResult, error) {
 	const maxRespLen = 10
 

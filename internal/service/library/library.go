@@ -40,6 +40,7 @@ type LibraryClient interface {
 	Search(ctx context.Context, token jwt.Token, filter models.MediaFilter) ([]models.Media, error)
 	NewMedia(ctx context.Context, token jwt.Token, media models.Media) error
 	UpdateMedia(ctx context.Context, token jwt.Token, media models.Media) error
+	DeleteMedia(ctx context.Context, token jwt.Token, mediaId int64) error
 	AllTags(ctx context.Context, token jwt.Token) (models.TagList, error)
 	NewTag(ctx context.Context, token jwt.Token, tag models.Tag) (int64, error)
 }
@@ -164,6 +165,7 @@ func (l *library) UpdateMedia(ctx context.Context, id int64, mediaConf models.Me
 	log := l.log.With(
 		slog.String("op", op),
 		slog.Int64("userId", id),
+		slog.Int64("mediaId", mediaConf.ID),
 	)
 
 	token, err := l.auth.Token(ctx, id)
@@ -205,7 +207,36 @@ func (l *library) UpdateMedia(ctx context.Context, id int64, mediaConf models.Me
 
 	if err := l.libClient.UpdateMedia(ctx, token, media); err != nil {
 		log.Error(
-			"failed to upload media",
+			"failed to update media",
+			sl.Err(err),
+		)
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (l *library) DeleteMedia(ctx context.Context, id int64, mediaConf models.MediaConfig) error {
+	const op = "library.DeleteMedia"
+
+	log := l.log.With(
+		slog.String("op", op),
+		slog.Int64("userId", id),
+		slog.Int64("mediaId", mediaConf.ID),
+	)
+
+	token, err := l.auth.Token(ctx, id)
+	if err != nil {
+		log.Error(
+			"failed to get token",
+			sl.Err(err),
+		)
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := l.libClient.DeleteMedia(ctx, token, mediaConf.ID); err != nil {
+		log.Error(
+			"failed to delete media",
 			sl.Err(err),
 		)
 		return fmt.Errorf("%s: %w", op, err)

@@ -31,6 +31,9 @@ const (
 	cmdCloseSlider     ctr.Command = "cancel"
 	cmdSelectMedia     ctr.Command = "select"
 	cmdUpdateMediaInfo ctr.Command = "update-media"
+	cmdDeleteMedia     ctr.Command = "delete"
+	cmdDeleteSubmit    ctr.Command = "delete-submit"
+	cmdDeleteReject    ctr.Command = "delete-reject"
 
 	// filler
 	cmdNoOp ctr.Command = "no-op"
@@ -47,8 +50,8 @@ type search struct {
 
 	searchStorage        storage.Storage[searchOption]
 	targetUpdateStorage  storage.Storage[string]
-	mediaPage            storage.Storage[int]
-	mediaResults         storage.Storage[[]localModels.MediaConfig]
+	mediaPageStorage     storage.Storage[int]
+	mediaResultsStorage  storage.Storage[[]localModels.MediaConfig]
 	mediaSelectedStorage storage.Storage[localModels.MediaConfig]
 	msgIdStorage         storage.Storage[int]
 }
@@ -60,6 +63,7 @@ type Auth interface {
 type Library interface {
 	Search(ctx context.Context, id int64, filter localModels.MediaFilter) ([]localModels.MediaConfig, error)
 	UpdateMedia(ctx context.Context, id int64, mediaConf localModels.MediaConfig) error
+	DeleteMedia(ctx context.Context, id int64, mediaConf localModels.MediaConfig) error
 }
 
 type searchOption struct {
@@ -139,8 +143,8 @@ func Register(
 
 		searchStorage:        storage.New[searchOption](),
 		targetUpdateStorage:  storage.New[string](),
-		mediaPage:            storage.New[int](),
-		mediaResults:         storage.New[[]localModels.MediaConfig](),
+		mediaPageStorage:     storage.New[int](),
+		mediaResultsStorage:  storage.New[[]localModels.MediaConfig](),
 		mediaSelectedStorage: storage.New[localModels.MediaConfig](),
 		msgIdStorage:         storage.New[int](),
 	}
@@ -182,6 +186,11 @@ func Register(
 		s.mediaSelectedStorage,
 		s.msgIdStorage,
 	)
+
+	// delete media
+	router.RegisterCallback(cmdDeleteMedia, s.deleteMedia)
+	router.RegisterCallback(cmdDeleteSubmit, s.deleteSubmit)
+	router.RegisterCallback(cmdDeleteReject, s.deleteReject)
 
 	// null handler to answer callbacks for empty buttons
 	router.RegisterCallback(cmdNoOp, s.nullHandler)
@@ -273,8 +282,8 @@ func (s *search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 		return
 	}
 
-	s.mediaPage.Set(chatId, 1)
-	s.mediaResults.Set(chatId, res)
+	s.mediaPageStorage.Set(chatId, 1)
+	s.mediaResultsStorage.Set(chatId, res)
 	s.mediaSelectedStorage.Set(chatId, res[0])
 
 	msg, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{

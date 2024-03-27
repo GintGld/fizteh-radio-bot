@@ -21,6 +21,7 @@ const (
 	butMsgAddToSch = "Запланировать"
 	butMsgEdit     = "Редактировать"
 	butMsgPlayNext = "Играть следующим"
+	butMsgDelete   = "Удалить"
 
 	butMsgSubmit = "Искать"
 	butMsgCancel = "Назад"
@@ -106,9 +107,23 @@ func (s *search) mediaSliderMarkup(id int, maxId int) models.InlineKeyboardMarku
 				{Text: butMsgAddToSch, CallbackData: s.router.Path(cmdSelectMedia)},
 				{Text: butMsgPlayNext, CallbackData: s.router.Path(cmdNoOp)}, // TODO
 			},
-			{ // TODO delete button
+			{
 				{Text: butMsgEdit, CallbackData: s.router.Path(cmdUpdateMediaInfo)},
+				{Text: butMsgDelete, CallbackData: s.router.Path(cmdDeleteMedia)},
+			},
+			{
 				{Text: butMsgCancel, CallbackData: s.router.Path(cmdCloseSlider)},
+			},
+		},
+	}
+}
+
+func (s *search) submitDeleteMarkup() models.InlineKeyboardMarkup {
+	return models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{
+				{Text: "Да", CallbackData: s.router.Path(cmdDeleteSubmit)},
+				{Text: "Нет", CallbackData: s.router.Path(cmdDeleteReject)},
 			},
 		},
 	}

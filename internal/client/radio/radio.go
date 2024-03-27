@@ -291,6 +291,47 @@ func (c *Client) UpdateMedia(ctx context.Context, token jwt.Token, media models.
 	}
 }
 
+func (c *Client) DeleteMedia(ctx context.Context, token jwt.Token, mediaId int64) error {
+	const op = "Client.DeleteMedia"
+
+	url := fmt.Sprintf("%s/library/media/%d", c.addr, mediaId)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token.Raw)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	defer resp.Body.Close()
+
+	bodyResp, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		return nil
+	case 400:
+		var e HTTPError
+		if err := json.Unmarshal(bodyResp, &e); err != nil {
+			return fmt.Errorf("%s: %s", op, string(bodyResp))
+		}
+		return fmt.Errorf("%s: returned error %s", op, e.Err)
+	case 401:
+		return client.ErrNotAuthorized
+	case 500:
+		return client.ErrInternalServerError
+	default:
+		return fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+	}
+}
+
 func (c *Client) Media(ctx context.Context, token jwt.Token, id int64) (models.Media, error) {
 	const op = "Client.Media"
 

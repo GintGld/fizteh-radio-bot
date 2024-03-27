@@ -87,7 +87,7 @@ func New(
 	// Services
 	var (
 		auth           start.Auth
-		libSearchSrv   search.LibrarySearch
+		libSearchSrv   search.Library
 		scheduleAddSrv datetime.ScheduleAdd
 		mediaUploadSrv upload.MediaUpload
 		getScheduleSrv schedule.Schedule

@@ -14,7 +14,7 @@ import (
 func (s *search) update(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "search.update"
 
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
+	s.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -171,7 +171,7 @@ func (s *search) getData(ctx context.Context, b *bot.Bot, update *models.Update)
 func (s *search) cancelSlider(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "search.cancelSlider"
 
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
+	s.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 

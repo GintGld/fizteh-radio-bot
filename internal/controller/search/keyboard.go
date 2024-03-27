@@ -27,13 +27,6 @@ const (
 )
 
 func (s *search) mainMenuMarkup(opt searchOption) models.InlineKeyboardMarkup {
-	// msgFormat := butMsgSong
-	// msgFormatSelect := butMsgPlaylist
-	// if opt.format == formatPodcast {
-	// 	msgFormat = butMsgPodcast
-	// 	msgFormatSelect = butMsgPodcasts
-	// }
-
 	var msgFormat, msgFormatSelect, msgCallback string
 	switch opt.format {
 	case formatSong:
@@ -113,8 +106,8 @@ func (s *search) mediaSliderMarkup(id int, maxId int) models.InlineKeyboardMarku
 				{Text: butMsgAddToSch, CallbackData: s.router.Path(cmdSelectMedia)},
 				{Text: butMsgPlayNext, CallbackData: s.router.Path(cmdNoOp)}, // TODO
 			},
-			{
-				{Text: butMsgEdit, CallbackData: s.router.Path(cmdNoOp)}, // TODO
+			{ // TODO delete button
+				{Text: butMsgEdit, CallbackData: s.router.Path(cmdUpdateMediaInfo)},
 				{Text: butMsgCancel, CallbackData: s.router.Path(cmdCloseSlider)},
 			},
 		},

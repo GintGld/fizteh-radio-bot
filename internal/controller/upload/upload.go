@@ -12,6 +12,8 @@ import (
 	localModels "github.com/GintGld/fizteh-radio-bot/internal/models"
 )
 
+// FIXME delete custom setting and use special controller
+
 const (
 	cmdBase   ctr.Command = ""
 	cmdManual ctr.Command = "manual"

@@ -39,6 +39,7 @@ type Auth interface {
 type LibraryClient interface {
 	Search(ctx context.Context, token jwt.Token, filter models.MediaFilter) ([]models.Media, error)
 	NewMedia(ctx context.Context, token jwt.Token, media models.Media) error
+	UpdateMedia(ctx context.Context, token jwt.Token, media models.Media) error
 	AllTags(ctx context.Context, token jwt.Token) (models.TagList, error)
 	NewTag(ctx context.Context, token jwt.Token, tag models.Tag) (int64, error)
 }
@@ -147,6 +148,62 @@ func (l *library) NewMedia(ctx context.Context, id int64, mediaConf models.Media
 	}
 
 	if err := l.libClient.NewMedia(ctx, token, media); err != nil {
+		log.Error(
+			"failed to upload media",
+			sl.Err(err),
+		)
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (l *library) UpdateMedia(ctx context.Context, id int64, mediaConf models.MediaConfig) error {
+	const op = "library.UpdateMedia"
+
+	log := l.log.With(
+		slog.String("op", op),
+		slog.Int64("userId", id),
+	)
+
+	token, err := l.auth.Token(ctx, id)
+	if err != nil {
+		log.Error(
+			"failed to get token",
+			sl.Err(err),
+		)
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	media := mediaConf.ToMedia()
+
+	tagAvail, err := l.libClient.AllTags(ctx, token)
+	if err != nil {
+		log.Error("failed to get available tags", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	for i, tag := range media.Tags {
+		if j := slices.IndexFunc(tagAvail, func(t models.Tag) bool {
+			return t.Name == tag.Name
+		}); j != -1 {
+			log.Debug("found", slog.Int("j", j))
+			media.Tags[i] = tagAvail[j]
+		} else {
+			log.Debug("create")
+			id, err := l.libClient.NewTag(ctx, token, tag)
+			if err != nil {
+				log.Error(
+					"failed to create tag",
+					slog.String("name", tag.Name),
+					sl.Err(err),
+				)
+				return fmt.Errorf("%s: %w", op, err)
+			}
+			media.Tags[i].ID = id
+		}
+	}
+
+	if err := l.libClient.UpdateMedia(ctx, token, media); err != nil {
 		log.Error(
 			"failed to upload media",
 			sl.Err(err),

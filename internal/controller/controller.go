@@ -23,7 +23,7 @@ type Command string
 // when session is closed.
 const NullStatus string = "/null"
 
-type OnCancelHandler func(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage)
+type OnSelectHandler func(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage)
 
 // TODO make one function for answer callback for all controllers.
 // Or make an inheritance after struct with this method.
@@ -56,6 +56,17 @@ const (
 	LibSearchErrNilOption       = "Ты так получишь фиг знает что, настрой поиск получше."
 	LibSearchErrEmptyRes        = "По твоему запросу ничего не нашлось."
 
+	// "/lib/search" update
+	LibSearchUpdatedSuccess    = "Успешно обновлено."
+	LibSearchUpdateAskName     = "Название."
+	LibSearchUpdateAskAuthor   = "Имя автора."
+	LibSearchUpdateAskGenre    = "Введи через запятую жанры."
+	LibSearchUpdateAskPlaylist = "Введи через запятую плейлисты, куда добавить песню."
+	LibSearchUpdateAskPodcast  = "Введи через запятую сезоны, куда добавить подкаст."
+	LibSearchUpdateAskLang     = "Введи через запятую языки."
+	LibSearchUpdateAskMood     = "Введи через запятую настроения."
+	LibSearchUpdateErrEmptyMsg = "Не надо делать пустое поле..."
+
 	// "/lib/search/pick"
 	LibSearchPickSelecting = "Выбор даты и времени."
 
@@ -64,10 +75,9 @@ const (
 	LibUploadAskFile         = "Отправь мне файл для скачивания."
 	LibUploadFileNotFound    = "Ты не отправил(а) мне файл."
 	LibUploadInvalidMimeType = "Я пока могу кушать только .mp3 файлы :("
-	LibUploadAskName         = "Название для файла."
+	LibUploadAskName         = "Название."
 	LibUploadAskAuthor       = "Имя автора."
 	LibUploadAskGenre        = "Введи через запятую жанры."
-	LibUploadAskFormat       = "Песня или подкаст?"
 	LibUploadAskPlaylist     = "Введи через запятую плейлисты, куда добавить песню."
 	LibUploadAskPodcast      = "Введи через запятую сезоны, куда добавить подкаст."
 	LibUploadAskLang         = "Введи через запятую языки."

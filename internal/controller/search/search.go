@@ -10,6 +10,7 @@ import (
 
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/datetime"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/setting"
 	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/storage"
 	localModels "github.com/GintGld/fizteh-radio-bot/internal/models"
 )
@@ -26,35 +27,39 @@ const (
 	cmdReset   ctr.Command = "reset"
 
 	// media slider
-	cmdUpdateSlide ctr.Command = "update-slide"
-	cmdCloseSlider ctr.Command = "cancel"
-	cmdSelectMedia ctr.Command = "select"
+	cmdUpdateSlide     ctr.Command = "update-slide"
+	cmdCloseSlider     ctr.Command = "cancel"
+	cmdSelectMedia     ctr.Command = "select"
+	cmdUpdateMediaInfo ctr.Command = "update-media"
 
 	// filler
 	cmdNoOp ctr.Command = "no-op"
 )
 
 type search struct {
-	router    *ctr.Router
-	auth      Auth
-	libSearch LibrarySearch
-	session   ctr.Session
-	onError   bot.ErrorsHandler
+	ctr.CallbackAnswerer
 
-	searchStorage       storage.Storage[searchOption]
-	targetUpdateStorage storage.Storage[string]
-	mediaPage           storage.Storage[int]
-	mediaResults        storage.Storage[[]localModels.MediaConfig]
-	mediaSelected       storage.Storage[localModels.MediaConfig]
-	msgIdStorage        storage.Storage[int]
+	router  *ctr.Router
+	auth    Auth
+	lib     Library
+	session ctr.Session
+	onError bot.ErrorsHandler
+
+	searchStorage        storage.Storage[searchOption]
+	targetUpdateStorage  storage.Storage[string]
+	mediaPage            storage.Storage[int]
+	mediaResults         storage.Storage[[]localModels.MediaConfig]
+	mediaSelectedStorage storage.Storage[localModels.MediaConfig]
+	msgIdStorage         storage.Storage[int]
 }
 
 type Auth interface {
 	IsKnown(ctx context.Context, id int64) bool
 }
 
-type LibrarySearch interface {
+type Library interface {
 	Search(ctx context.Context, id int64, filter localModels.MediaFilter) ([]localModels.MediaConfig, error)
+	UpdateMedia(ctx context.Context, id int64, mediaConf localModels.MediaConfig) error
 }
 
 type searchOption struct {
@@ -120,24 +125,24 @@ func (sOpt searchFormat) Repr() string {
 func Register(
 	router *ctr.Router,
 	auth Auth,
-	libSearch LibrarySearch,
+	lib Library,
 	scheduleAdd datetime.ScheduleAdd,
 	session ctr.Session,
 	onError bot.ErrorsHandler,
 ) {
 	s := &search{
-		router:    router,
-		auth:      auth,
-		libSearch: libSearch,
-		session:   session,
-		onError:   onError,
+		router:  router,
+		auth:    auth,
+		lib:     lib,
+		session: session,
+		onError: onError,
 
-		searchStorage:       storage.New[searchOption](),
-		targetUpdateStorage: storage.New[string](),
-		mediaPage:           storage.New[int](),
-		mediaResults:        storage.New[[]localModels.MediaConfig](),
-		mediaSelected:       storage.New[localModels.MediaConfig](),
-		msgIdStorage:        storage.New[int](),
+		searchStorage:        storage.New[searchOption](),
+		targetUpdateStorage:  storage.New[string](),
+		mediaPage:            storage.New[int](),
+		mediaResults:         storage.New[[]localModels.MediaConfig](),
+		mediaSelectedStorage: storage.New[localModels.MediaConfig](),
+		msgIdStorage:         storage.New[int](),
 	}
 
 	// main menu
@@ -164,7 +169,18 @@ func Register(
 		s.canceledDateTimeSelector,
 		onError,
 		s.msgIdStorage,
-		s.mediaSelected,
+		s.mediaSelectedStorage,
+	)
+
+	// selector for updating media info
+	setting.Register(
+		router.With(cmdUpdateMediaInfo),
+		session,
+		s.updateMedia,
+		s.closedUpdateMedia,
+		onError,
+		s.mediaSelectedStorage,
+		s.msgIdStorage,
 	)
 
 	// null handler to answer callbacks for empty buttons
@@ -204,7 +220,7 @@ func (s *search) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 func (s *search) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "search.submit"
 
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
+	s.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
@@ -227,13 +243,13 @@ func (s *search) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
 func (s *search) submit(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "search.submit"
 
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
+	s.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	chatId := update.CallbackQuery.Message.Message.Chat.ID
 
 	opt := s.searchStorage.Get(chatId)
 
-	res, err := s.libSearch.Search(ctx, chatId, opt.ToFilter())
+	res, err := s.lib.Search(ctx, chatId, opt.ToFilter())
 	// TODO enhance errors
 	if err != nil {
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
@@ -259,7 +275,7 @@ func (s *search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 
 	s.mediaPage.Set(chatId, 1)
 	s.mediaResults.Set(chatId, res)
-	s.mediaSelected.Set(chatId, res[0])
+	s.mediaSelectedStorage.Set(chatId, res[0])
 
 	msg, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 		ChatID:      chatId,
@@ -276,27 +292,8 @@ func (s *search) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 	s.msgIdStorage.Set(chatId, msg.ID)
 }
 
-// TODO: update
-
 func (s *search) nullHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	s.callbackAnswer(ctx, b, update.CallbackQuery)
-}
-
-func (s *search) callbackAnswer(ctx context.Context, b *bot.Bot, callbackQuery *models.CallbackQuery) {
-	const op = "search.callbackAnswer"
-
-	chatId := callbackQuery.Message.Message.Chat.ID
-
-	ok, err := b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: callbackQuery.ID,
-	})
-	if err != nil {
-		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
-		return
-	}
-	if !ok {
-		s.onError(fmt.Errorf("%s [%d]: %s", op, chatId, "callback answer failed"))
-	}
+	s.CallbackAnswer(ctx, b, update.CallbackQuery)
 }
 
 // filterRepr returns formated filter info.

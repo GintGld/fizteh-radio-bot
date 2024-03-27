@@ -29,7 +29,7 @@ type picker struct {
 	router           *ctr.Router
 	schedule         ScheduleAdd
 	session          ctr.Session
-	onCancel         ctr.OnCancelHandler
+	onCancel         ctr.OnSelectHandler
 	onError          bot.ErrorsHandler
 	mediaConfStorage storage.Storage[localModels.MediaConfig]
 
@@ -45,7 +45,7 @@ func Register(
 	router *ctr.Router,
 	schedule ScheduleAdd,
 	session ctr.Session,
-	onCancel ctr.OnCancelHandler,
+	onCancel ctr.OnSelectHandler,
 	onError bot.ErrorsHandler,
 	msgIdStorage storage.Storage[int],
 	mediaConfStorage storage.Storage[localModels.MediaConfig],

@@ -99,7 +99,7 @@ func (u *upload) cancelMarkup() models.InlineKeyboardMarkup {
 	}
 }
 
-func (u *upload) playlistMarkup() models.InlineKeyboardMarkup {
+func (u *upload) askUploadMarkup() models.InlineKeyboardMarkup {
 	return models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{

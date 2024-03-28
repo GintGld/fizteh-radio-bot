@@ -35,6 +35,32 @@ func TestTrackRegExp(t *testing.T) {
 	}
 }
 
+func TestAlbumRegExp(t *testing.T) {
+	type expected struct {
+		albumId string
+	}
+
+	testCases := []struct {
+		desc     string
+		url      string
+		expected expected
+	}{
+		{
+			desc: "",
+			url:  "https://music.yandex.ru/album/6569250",
+			expected: expected{
+				albumId: "6569250",
+			},
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			albumId := extractAlbumInfo(tC.url)
+			assert.Equal(t, tC.expected.albumId, albumId)
+		})
+	}
+}
+
 func TestPlaylistRegExp(t *testing.T) {
 	type expected struct {
 		kind string

@@ -85,7 +85,7 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 
 	switch res.Type {
 	case localModels.ResSong:
-
+		u.linkTypeStorage.Set(chatId, localModels.ResSong)
 		u.mediaConfigStorage.Set(chatId, res.MediaConf)
 
 		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
@@ -97,19 +97,48 @@ func (u *upload) getLink(ctx context.Context, b *bot.Bot, update *models.Update)
 		}); err != nil {
 			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
+	case localModels.ResAlbum:
+		u.linkTypeStorage.Set(chatId, localModels.ResAlbum)
+
+		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+			ChatID:      chatId,
+			MessageID:   u.msgIdStorage.Get(chatId),
+			Text:        u.albumRepr(res),
+			ReplyMarkup: u.askUploadMarkup(),
+			ParseMode:   models.ParseModeHTML,
+		}); err != nil {
+			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		}
 	case localModels.ResPlaylist:
-		u.isPlaylistStorage.Set(chatId, true)
+		u.linkTypeStorage.Set(chatId, localModels.ResPlaylist)
 
 		if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
 			ChatID:      chatId,
 			MessageID:   u.msgIdStorage.Get(chatId),
 			Text:        u.playlistRepr(res),
-			ReplyMarkup: u.playlistMarkup(),
+			ReplyMarkup: u.askUploadMarkup(),
 			ParseMode:   models.ParseModeHTML,
 		}); err != nil {
 			u.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 		}
 	}
+}
+
+func (u *upload) albumRepr(res localModels.LinkDownloadResult) string {
+	var b strings.Builder
+
+	totalDur := time.Duration(0)
+
+	b.WriteString(fmt.Sprintf("<b>Альбом:</b> %s\n", res.Album.Name))
+
+	for _, m := range res.Album.Values {
+		totalDur += m.Duration
+	}
+
+	b.WriteString(fmt.Sprintf("<b>Количество песен:</b> %d\n", len(res.Album.Values)))
+	b.WriteString(fmt.Sprintf("<b>Общая длительность:</b> %s", totalDur.String()))
+
+	return b.String()
 }
 
 func (u *upload) playlistRepr(res localModels.LinkDownloadResult) string {

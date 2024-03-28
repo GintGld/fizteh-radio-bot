@@ -117,6 +117,10 @@ func (a *auth) Login(ctx context.Context, id int64, login, pass string) error {
 // if user does not exists
 // returns service.ErrUserNotFound error.
 func (a *auth) Token(_ context.Context, id int64) (jwt.Token, error) {
+	if _, ok := a.userMutex[id]; !ok {
+		return jwt.Token{}, service.ErrUserNotFound
+	}
+
 	a.userMutex[id].Lock()
 	defer a.userMutex[id].Unlock()
 

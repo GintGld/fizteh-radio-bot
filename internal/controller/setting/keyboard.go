@@ -10,6 +10,7 @@ const (
 	butMsgName     = "Название"
 	butMsgAuthor   = "Автор"
 	butMsgGenre    = "Жанр"
+	butMsgAlbum    = "Альбом"
 	butMsgPlaylist = "Плейлисты"
 	butMsgPodcast  = "Подкаст"
 	butMsgPodcasts = "Подкасты"
@@ -51,15 +52,18 @@ func (s *setting) MainSettingsMarkup(conf localModels.MediaConfig) models.Inline
 				{Text: form, CallbackData: s.router.PathPrefixState(cmdUpdateSetting, formCallback)},
 			},
 			{
+				{Text: butMsgAlbum, CallbackData: s.router.PathPrefixState(cmdUpdateSetting, "album")},
 				{Text: butMsgGenre, CallbackData: s.router.PathPrefixState(cmdUpdateSetting, "genre")},
+			},
+			{
 				{Text: butMsgLang, CallbackData: s.router.PathPrefixState(cmdUpdateSetting, "lang")},
-			},
-			{
 				{Text: butMsgMood, CallbackData: s.router.PathPrefixState(cmdUpdateSetting, "mood")},
-				{Text: butMsgReset, CallbackData: s.router.PathPrefixState(cmdUpdateSetting, "reset")},
 			},
 			{
+				{Text: butMsgReset, CallbackData: s.router.PathPrefixState(cmdUpdateSetting, "reset")},
 				{Text: butMsgSubmit, CallbackData: s.router.Path(cmdSubmit)},
+			},
+			{
 				{Text: butMsgCancel, CallbackData: s.router.Path(cmdClose)},
 			},
 		},

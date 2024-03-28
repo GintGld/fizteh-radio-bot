@@ -23,6 +23,7 @@ import (
 
 var (
 	yaSong     = regexp.MustCompile(`^https://music\.yandex\.(ru|com)/album/(?P<album>\d+)/track/(?P<track>\d+)`)
+	yaAlbum    = regexp.MustCompile(`^https://music\.yandex\.(ru|com)/album/(?P<album>\d+)`)
 	yaPlaylist = regexp.MustCompile(`^https://music\.yandex\.(ru|com)/users/(?P<user>[^\/]+)/playlists/(?P<kind>\d+)`)
 )
 
@@ -182,30 +183,13 @@ func (l *library) UpdateMedia(ctx context.Context, id int64, mediaConf models.Me
 
 	media := mediaConf.ToMedia()
 
-	tagAvail, err := l.libClient.AllTags(ctx, token)
-	if err != nil {
-		log.Error("failed to get available tags", sl.Err(err))
-		return fmt.Errorf("%s: %w", op, err)
-	}
-	for i, tag := range media.Tags {
-		if j := slices.IndexFunc(tagAvail, func(t models.Tag) bool {
-			return t.Name == tag.Name
-		}); j != -1 {
-			log.Debug("found", slog.Int("j", j))
-			media.Tags[i] = tagAvail[j]
-		} else {
-			log.Debug("create")
-			id, err := l.libClient.NewTag(ctx, token, tag)
-			if err != nil {
-				log.Error(
-					"failed to create tag",
-					slog.String("name", tag.Name),
-					sl.Err(err),
-				)
-				return fmt.Errorf("%s: %w", op, err)
-			}
-			media.Tags[i].ID = id
+	if err := l.recoverTagIds(ctx, token, &media); err != nil {
+		if errors.Is(err, service.ErrTagNotFound) {
+			log.Warn("media has not existing tag", slog.String("name", media.Name), slog.Any("tags", media.Tags))
+			return service.ErrTagNotFound
 		}
+		log.Error("failed to recover tags", slog.Int64("id", media.ID), sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	if err := l.libClient.UpdateMedia(ctx, token, media); err != nil {
@@ -271,6 +255,19 @@ func (l *library) LinkDownload(ctx context.Context, id int64, link string) (mode
 		}
 
 		res.MediaConf = mediaConf
+	} else if yaAlbum.MatchString(link) {
+		res.Type = models.ResAlbum
+
+		album, err := l.linkAlbum(ctx, id, link)
+		if err != nil {
+			log.Error(
+				"failed to handle album",
+				sl.Err(err),
+			)
+			return models.LinkDownloadResult{}, nil
+		}
+
+		res.Album = album
 	} else if yaPlaylist.MatchString(link) {
 		res.Type = models.ResPlaylist
 
@@ -280,6 +277,7 @@ func (l *library) LinkDownload(ctx context.Context, id int64, link string) (mode
 				"failed to handle playlist",
 				sl.Err(err),
 			)
+			return models.LinkDownloadResult{}, nil
 		}
 
 		res.Playlist = playlist
@@ -359,6 +357,69 @@ func (l *library) linkTrack(ctx context.Context, id int64, url string) (models.M
 		Duration:   track.Duration,
 		SourcePath: filePath,
 		Format:     tag,
+	}, nil
+}
+
+func (l *library) linkAlbum(ctx context.Context, id int64, url string) (models.AlbumDownloadRes, error) {
+	const op = "library.linkTrack"
+
+	log := l.log.With(
+		slog.String("op", op),
+		slog.Int64("userId", id),
+	)
+
+	albumId := extractAlbumInfo(url)
+
+	album, err := l.yaClient.Album(ctx, albumId)
+	if err != nil {
+		// TODO handle errors
+		log.Error(
+			"failed to get album info",
+			slog.String("albumId", albumId),
+			sl.Err(err),
+		)
+		return models.AlbumDownloadRes{}, fmt.Errorf("%s: %w", op, err)
+	}
+	if album.Err != nil {
+		log.Error(
+			"failed to get album info",
+			slog.String("albumId", albumId),
+			slog.String("error", *album.Err),
+		)
+		return models.AlbumDownloadRes{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	values := make([]models.MediaConfig, 0, len(album.Tracks))
+	for _, track := range album.Tracks {
+		filePath, err := l.downloadLinkTrack(ctx, track.Id)
+		if err != nil {
+			log.Error(
+				"failed to download track",
+				slog.String("trackId", track.Id),
+				sl.Err(err),
+			)
+			return models.AlbumDownloadRes{}, fmt.Errorf("%s: %w", op, err)
+		}
+
+		values = append(values, models.MediaConfig{
+			Name:       track.Title,
+			Author:     track.Artists[0].Name,
+			Duration:   track.Duration,
+			SourcePath: filePath,
+			Format:     models.Song,
+			Albums: []models.Album{
+				{
+					Name:   album.Title,
+					Author: album.Artists[0].Name,
+				},
+			},
+		})
+	}
+
+	return models.AlbumDownloadRes{
+		Name:   album.Title,
+		Author: album.Artists[0].Name,
+		Values: values,
 	}, nil
 }
 
@@ -476,15 +537,15 @@ func (l *library) downloadLinkTrack(ctx context.Context, id string) (string, err
 	return filePath, nil
 }
 
-func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownloadResult) error {
+func (l *library) LinkUpload(ctx context.Context, userId int64, res models.LinkDownloadResult) error {
 	const op = "library.LinkUpload"
 
 	log := l.log.With(
 		slog.String("op", op),
-		slog.Int64("userId", id),
+		slog.Int64("userId", userId),
 	)
 
-	token, err := l.auth.Token(ctx, id)
+	token, err := l.auth.Token(ctx, userId)
 	if err != nil {
 		log.Error(
 			"failed to get token",
@@ -493,26 +554,28 @@ func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownl
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	media := res.MediaConf.ToMedia()
-
+	// Create tag for group
+	// set values to upload.
+	var values []models.MediaConfig
 	switch res.Type {
-	case models.ResSong:
-		if _, err := l.libClient.NewMedia(ctx, token, media); err != nil {
-			if errors.Is(err, service.ErrMediaExists) {
-				log.Info(
-					"media already exists",
-					slog.String("name", media.Name),
-					slog.String("author", media.Author),
-				)
-				return service.ErrMediaExists
-			}
+	case models.ResAlbum:
+		if _, err := l.libClient.NewTag(ctx, token, models.Tag{
+			Name: res.Album.Name,
+			Type: models.TagTypesAvail["album"],
+			Meta: map[string]string{
+				"author": res.Album.Author,
+			},
+		}); err != nil {
+			// TODO: handle "tag already exist".
 			log.Error(
-				"failed to upload media",
-				slog.String("name", media.Name),
+				"failed to create tag",
+				slog.String("name", res.Playlist.Name),
 				sl.Err(err),
 			)
 			return fmt.Errorf("%s: %w", op, err)
 		}
+
+		values = res.Album.Values
 	case models.ResPlaylist:
 		if _, err := l.libClient.NewTag(ctx, token, models.Tag{
 			Name: res.Playlist.Name,
@@ -527,45 +590,41 @@ func (l *library) LinkUpload(ctx context.Context, id int64, res models.LinkDownl
 			return fmt.Errorf("%s: %w", op, err)
 		}
 
-	upload_loop:
-		for _, m := range res.Playlist.Values {
-			if id, err := l.NewMedia(ctx, id, m); err != nil {
-				// If media already exists, add new tags to it
-				if errors.Is(err, service.ErrMediaExists) {
-					log.Info(
-						"media already exists, add new tags to it",
-						slog.String("name", m.Name),
-						slog.String("author", m.Author),
-					)
-					m := m.ToMedia()
-					oldMedia, err := l.libClient.Media(ctx, token, id)
-					if err != nil {
-						log.Error("failed to get media", slog.Int64("id", id), sl.Err(err))
-						continue upload_loop
-					}
-					// add new tags
-					newTags := slices.Clone(oldMedia.Tags)
-					for _, t := range m.Tags {
-						if !slices.ContainsFunc(oldMedia.Tags, func(tInner models.Tag) bool {
-							return tInner.Name == t.Name && tInner.Type == t.Type
-						}) {
-							newTags = append(newTags, t)
-						}
-					}
-					oldMedia.Tags = newTags
-					if err := l.libClient.UpdateMedia(ctx, token, oldMedia); err != nil {
-						log.Error("failed to update media", slog.Int64("id", oldMedia.ID), sl.Err(err))
-					}
+		values = res.Playlist.Values
+	}
+
+upload_loop:
+	for _, m := range values {
+		if id, err := l.NewMedia(ctx, userId, m); err != nil {
+			// If media already exists, add new tags to it
+			if errors.Is(err, service.ErrMediaExists) {
+				log.Info("media already exists, add new tags to it", slog.String("name", m.Name), slog.String("author", m.Author))
+				m := m.ToMedia()
+				// Get old version of media.
+				oldMedia, err := l.libClient.Media(ctx, token, id)
+				if err != nil {
+					log.Error("failed to get media", slog.Int64("id", id), sl.Err(err))
 					continue upload_loop
 				}
-				log.Error(
-					"failed to upload media",
-					slog.String("Name", m.Name),
-					slog.String("source", m.SourcePath),
-					sl.Err(err),
-				)
-				return fmt.Errorf("%s: %w", op, err)
+				// Add new tags to old media if needed.
+				newTags := slices.Clone(oldMedia.Tags)
+				for _, t := range m.Tags {
+					if !slices.ContainsFunc(oldMedia.Tags, func(tInner models.Tag) bool {
+						return tInner.Name == t.Name && tInner.Type == t.Type
+					}) {
+						newTags = append(newTags, t)
+					}
+				}
+				// Update tags.
+				oldMedia.Tags = newTags
+				if err := l.UpdateMedia(ctx, userId, oldMedia.ToConfig()); err != nil {
+					log.Error("failed to update media", slog.Int64("id", oldMedia.ID), sl.Err(err))
+					return fmt.Errorf("%s: %w", op, err)
+				}
+				continue upload_loop
 			}
+			log.Error("failed to upload media", slog.String("Name", m.Name), slog.String("source", m.SourcePath), sl.Err(err))
+			return fmt.Errorf("%s: %w", op, err)
 		}
 	}
 
@@ -581,7 +640,7 @@ func (l *library) recoverTagIds(ctx context.Context, token jwt.Token, m *models.
 
 	tags, err := l.libClient.AllTags(ctx, token)
 	if err != nil {
-		log.Error("failedt to get all tags")
+		log.Error("failed to get all tags")
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -600,6 +659,12 @@ func (l *library) recoverTagIds(ctx context.Context, token jwt.Token, m *models.
 func exctractTrackInfo(url string) (trackId, albumId string) {
 	trackId = string(yaSong.ExpandString([]byte{}, "$track", url, yaSong.FindSubmatchIndex([]byte(url))))
 	albumId = string(yaSong.ExpandString([]byte{}, "$album", url, yaSong.FindSubmatchIndex([]byte(url))))
+
+	return
+}
+
+func extractAlbumInfo(url string) (albumId string) {
+	albumId = string(yaAlbum.ExpandString([]byte{}, "$album", url, yaAlbum.FindSubmatchIndex([]byte(url))))
 
 	return
 }

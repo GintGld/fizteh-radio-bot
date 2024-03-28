@@ -49,7 +49,7 @@ type upload struct {
 	onError     bot.ErrorsHandler
 	tmpDir      string
 
-	isPlaylistStorage      storage.Storage[bool]
+	linkTypeStorage        storage.Storage[localModels.ResultType]
 	mediaConfigStorage     storage.Storage[localModels.MediaConfig]
 	settingTargetStorage   storage.Storage[string]
 	linkDownloadResStorage storage.Storage[localModels.LinkDownloadResult]
@@ -82,7 +82,7 @@ func Register(
 		onError:     onError,
 		tmpDir:      tmpDir,
 
-		isPlaylistStorage:      storage.New[bool](),
+		linkTypeStorage:        storage.New[localModels.ResultType](),
 		mediaConfigStorage:     storage.New[localModels.MediaConfig](),
 		settingTargetStorage:   storage.New[string](),
 		linkDownloadResStorage: storage.New[localModels.LinkDownloadResult](),
@@ -161,11 +161,13 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 		}
 	}()
 
-	switch u.isPlaylistStorage.Get(chatId) {
-	case true:
-		err = u.mediaUpload.LinkUpload(ctx, chatId, u.linkDownloadResStorage.Get(chatId))
-	case false:
+	switch u.linkTypeStorage.Get(chatId) {
+	case localModels.ResSong:
 		_, err = u.mediaUpload.NewMedia(ctx, chatId, u.mediaConfigStorage.Get(chatId))
+	case localModels.ResAlbum:
+		err = u.mediaUpload.LinkUpload(ctx, chatId, u.linkDownloadResStorage.Get(chatId))
+	case localModels.ResPlaylist:
+		err = u.mediaUpload.LinkUpload(ctx, chatId, u.linkDownloadResStorage.Get(chatId))
 	}
 
 	if err != nil {
@@ -190,7 +192,7 @@ func (u *upload) submit(ctx context.Context, b *bot.Bot, update *models.Update) 
 		return
 	}
 
-	u.isPlaylistStorage.Del(chatId)
+	u.linkTypeStorage.Del(chatId)
 	u.linkDownloadResStorage.Del(chatId)
 	u.mediaConfigStorage.Del(chatId)
 	u.settingTargetStorage.Del(chatId)

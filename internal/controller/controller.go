@@ -81,6 +81,7 @@ const (
 	LibUploadInvalidMimeType       = "Я пока могу кушать только .mp3 файлы :("
 	LibUploadAskName               = "Название."
 	LibUploadAskAuthor             = "Имя автора."
+	LibUploadAskAlbum              = "Введи через запятую альбомы."
 	LibUploadAskGenre              = "Введи через запятую жанры."
 	LibUploadAskPlaylist           = "Введи через запятую плейлисты, куда добавить песню."
 	LibUploadAskPodcast            = "Введи через запятую сезоны, куда добавить подкаст."

@@ -24,6 +24,12 @@ type Media struct {
 	SourcePath string        `json:"-"`
 }
 
+type AlbumDownloadRes struct {
+	Name   string
+	Author string
+	Values []MediaConfig
+}
+
 type Playlist struct {
 	Name   string
 	Values []MediaConfig
@@ -35,6 +41,7 @@ type MediaConfig struct {
 	Author     string
 	Duration   time.Duration
 	Format     MediaFormat
+	Albums     []Album
 	Playlists  []string
 	Podcasts   []string
 	Genres     []string
@@ -50,6 +57,11 @@ const (
 	Podcast
 	Jingle
 )
+
+type Album struct {
+	Name   string
+	Author string
+}
 
 func (m MediaFormat) String() string {
 	switch m {
@@ -67,6 +79,7 @@ func (m MediaFormat) String() string {
 type LinkDownloadResult struct {
 	Type      ResultType
 	MediaConf MediaConfig
+	Album     AlbumDownloadRes
 	Playlist  Playlist
 }
 
@@ -74,6 +87,7 @@ type ResultType int
 
 const (
 	ResSong ResultType = iota
+	ResAlbum
 	ResPlaylist
 )
 
@@ -101,9 +115,10 @@ type TagTypes []TagType
 type TagList []Tag
 
 type Tag struct {
-	ID   int64   `json:"id"`
-	Name string  `json:"name"`
-	Type TagType `json:"type"`
+	ID   int64             `json:"id"`
+	Name string            `json:"name"`
+	Type TagType           `json:"type"`
+	Meta map[string]string `json:"meta"`
 }
 
 type TagType struct {
@@ -112,6 +127,7 @@ type TagType struct {
 }
 
 var (
+	// In agreement with server migrations.
 	TagTypesAvail = map[string]TagType{
 		"format":   {ID: 1, Name: "format"},
 		"genre":    {ID: 2, Name: "genre"},
@@ -119,8 +135,15 @@ var (
 		"mood":     {ID: 4, Name: "mood"},
 		"language": {ID: 5, Name: "language"},
 		"podcast":  {ID: 6, Name: "podcast"},
+		"album":    {ID: 7, Name: "album"},
 	}
 )
+
+type TagMeta struct {
+	TagID int64  `json:"tagId"`
+	Key   string `json:"key"`
+	Val   string `json:"val"`
+}
 
 type Segment struct {
 	ID        int64
@@ -186,6 +209,15 @@ func (conf MediaConfig) ToMedia() Media {
 			Type: TagTypesAvail["format"],
 		})
 	}
+	for _, a := range conf.Albums {
+		tags = append(tags, Tag{
+			Name: a.Name,
+			Type: TagTypesAvail["album"],
+			Meta: map[string]string{
+				"author": a.Author,
+			},
+		})
+	}
 	for _, t := range conf.Playlists {
 		tags = append(tags, Tag{
 			Name: t,
@@ -227,6 +259,7 @@ func (conf MediaConfig) ToMedia() Media {
 }
 
 func (m Media) ToConfig() MediaConfig {
+	Albums := make([]Album, 0)
 	Playlists := make([]string, 0)
 	Podcasts := make([]string, 0)
 	Genres := make([]string, 0)
@@ -245,6 +278,11 @@ func (m Media) ToConfig() MediaConfig {
 			case "jingle":
 				format = Jingle
 			}
+		case "album":
+			Albums = append(Albums, Album{
+				Name:   t.Name,
+				Author: t.Meta["author"],
+			})
 		case "playlist":
 			Playlists = append(Playlists, t.Name)
 		case "podcast":
@@ -264,6 +302,7 @@ func (m Media) ToConfig() MediaConfig {
 		Author:    m.Author,
 		Duration:  m.Duration,
 		Format:    format,
+		Albums:    Albums,
 		Playlists: Playlists,
 		Podcasts:  Podcasts,
 		Genres:    Genres,
@@ -281,6 +320,14 @@ func (conf MediaConfig) String() string {
 	b.WriteString(fmt.Sprintf("<b>Формат:</b> %s\n", conf.Format))
 	b.WriteString(fmt.Sprintf("<b>Длительность:</b> %s\n", conf.Duration.Round(time.Second).String()))
 
+	if len(conf.Albums) > 0 {
+		s := make([]string, 0, len(conf.Albums))
+		for _, a := range conf.Albums {
+			s = append(s, a.Name)
+		}
+
+		b.WriteString(fmt.Sprintf("<b>Альбомы:</b> %s\n", strings.Join(s, ", ")))
+	}
 	if len(conf.Podcasts) > 0 {
 		b.WriteString(fmt.Sprintf("<b>Подкасты:</b> %s\n", strings.Join(conf.Podcasts, ", ")))
 	}

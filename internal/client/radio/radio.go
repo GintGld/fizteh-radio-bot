@@ -592,7 +592,7 @@ func (c *Client) GetSchedule(ctx context.Context, token jwt.Token) ([]models.Seg
 func (c *Client) GetConfig(ctx context.Context, token jwt.Token) (models.AutoDJConfig, error) {
 	const op = "Client.GetConfig"
 
-	url := fmt.Sprintf("%s/dj/config", c.addr)
+	url := fmt.Sprintf("%s/schedule/dj/config", c.addr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -633,7 +633,7 @@ func (c *Client) GetConfig(ctx context.Context, token jwt.Token) (models.AutoDJC
 func (c *Client) SetConfig(ctx context.Context, token jwt.Token, conf models.AutoDJConfig) error {
 	const op = "Client.GetConfig"
 
-	url := fmt.Sprintf("%s/dj/config", c.addr)
+	url := fmt.Sprintf("%s/schedule/dj/config", c.addr)
 
 	bodyReq, err := json.Marshal(map[string]any{
 		"config": conf,
@@ -670,7 +670,7 @@ func (c *Client) SetConfig(ctx context.Context, token jwt.Token, conf models.Aut
 func (c *Client) StartAutoDJ(ctx context.Context, token jwt.Token) error {
 	const op = "Client.NewSegment"
 
-	url := fmt.Sprintf("%s/dj/start", c.addr)
+	url := fmt.Sprintf("%s/schedule/dj/start", c.addr)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
 	if err != nil {
@@ -700,7 +700,7 @@ func (c *Client) StartAutoDJ(ctx context.Context, token jwt.Token) error {
 func (c *Client) StopAutoDJ(ctx context.Context, token jwt.Token) error {
 	const op = "Client.NewSegment"
 
-	url := fmt.Sprintf("%s/dj/stop", c.addr)
+	url := fmt.Sprintf("%s/schedule/dj/stop", c.addr)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
 	if err != nil {
@@ -730,7 +730,7 @@ func (c *Client) StopAutoDJ(ctx context.Context, token jwt.Token) error {
 func (c *Client) IsAutoDJPlaying(ctx context.Context, token jwt.Token) (bool, error) {
 	const op = "Client.NewSegment"
 
-	url := fmt.Sprintf("%s/dj/status", c.addr)
+	url := fmt.Sprintf("%s/schedule/dj/status", c.addr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {

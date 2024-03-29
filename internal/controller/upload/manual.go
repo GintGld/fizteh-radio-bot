@@ -112,6 +112,7 @@ func (u *upload) manualUploadFile(ctx context.Context, b *bot.Bot, update *model
 		author = ""
 		name = ""
 	}
+	author = strings.TrimSuffix(author, ".mp3")
 
 	conf := localModels.MediaConfig{
 		Name:       name,

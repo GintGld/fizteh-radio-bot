@@ -102,7 +102,7 @@ func (c *Client) Search(ctx context.Context, token jwt.Token, filter models.Medi
 
 	url := fmt.Sprintf("%s/library/media", c.addr)
 
-	query := make([]string, 0, 3)
+	query := make([]string, 0, 4)
 	if filter.Name != "" {
 		query = append(query, urlPkg.PathEscape(fmt.Sprintf("name=%s", filter.Name)))
 	}
@@ -111,6 +111,9 @@ func (c *Client) Search(ctx context.Context, token jwt.Token, filter models.Medi
 	}
 	if len(filter.Tags) > 0 {
 		query = append(query, urlPkg.PathEscape(fmt.Sprintf("tags=%s", strings.Join(filter.Tags, ","))))
+	}
+	if filter.MaxRespLen > 0 {
+		query = append(query, fmt.Sprintf("res_len=%d", filter.MaxRespLen))
 	}
 
 	if len(query) > 0 {

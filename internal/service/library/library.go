@@ -147,7 +147,7 @@ func (l *library) NewMedia(ctx context.Context, id int64, mediaConf models.Media
 	if index := slices.IndexFunc(searchRes, func(conf models.MediaConfig) bool {
 		return conf.Name == media.Name && conf.Author == media.Author
 	}); index != -1 {
-		log.Warn("media already exists", slog.String("name", media.Name), slog.String("author", media.Author))
+		log.Warn("media already exists", slog.String("name", media.Name))
 		return searchRes[index].ID, service.ErrMediaExists
 	}
 
@@ -185,7 +185,7 @@ func (l *library) UpdateMedia(ctx context.Context, id int64, mediaConf models.Me
 
 	if err := l.recoverTagIds(ctx, token, &media); err != nil {
 		if errors.Is(err, service.ErrTagNotFound) {
-			log.Warn("media has not existing tag", slog.String("name", media.Name), slog.Any("tags", media.Tags))
+			log.Warn("media has not existing tag", slog.String("name", media.Name))
 			return service.ErrTagNotFound
 		}
 		log.Error("failed to recover tags", slog.Int64("id", media.ID), sl.Err(err))
@@ -636,6 +636,7 @@ func (l *library) recoverTagIds(ctx context.Context, token jwt.Token, m *models.
 
 	log := l.log.With(
 		slog.String("op", op),
+		slog.Int64("mediaId", m.ID),
 	)
 
 	tags, err := l.libClient.AllTags(ctx, token)
@@ -650,6 +651,7 @@ func (l *library) recoverTagIds(ctx context.Context, token jwt.Token, m *models.
 		}); j != -1 {
 			m.Tags[i].ID = tags[j].ID
 		} else {
+			log.Error("media has not existing tag", slog.Any("tag", t))
 			return service.ErrTagNotFound
 		}
 	}

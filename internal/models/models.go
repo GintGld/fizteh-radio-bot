@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/slice"
 )
 
 type User struct {
@@ -44,9 +46,9 @@ type MediaConfig struct {
 	Albums     []Album
 	Playlists  []string
 	Podcasts   []string
-	Genres     []string
-	Languages  []string
-	Moods      []string
+	Genres     [GenreNumber]bool
+	Moods      [MoodNumber]bool
+	Languages  [LangNumber]bool
 	SourcePath string
 }
 
@@ -61,6 +63,21 @@ const (
 type Album struct {
 	Name   string
 	Author string
+}
+
+type Genre struct {
+	Id   int64
+	Name string
+}
+
+type Mood struct {
+	Id   int64
+	Name string
+}
+
+type Language struct {
+	Id   int64
+	Name string
 }
 
 func (m MediaFormat) String() string {
@@ -125,19 +142,6 @@ type TagType struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
 }
-
-var (
-	// In agreement with server migrations.
-	TagTypesAvail = map[string]TagType{
-		"format":   {ID: 1, Name: "format"},
-		"genre":    {ID: 2, Name: "genre"},
-		"playlist": {ID: 3, Name: "playlist"},
-		"mood":     {ID: 4, Name: "mood"},
-		"language": {ID: 5, Name: "language"},
-		"podcast":  {ID: 6, Name: "podcast"},
-		"album":    {ID: 7, Name: "album"},
-	}
-)
 
 type TagMeta struct {
 	TagID int64  `json:"tagId"`
@@ -230,23 +234,20 @@ func (conf MediaConfig) ToMedia() Media {
 			Type: TagTypesAvail["podcast"],
 		})
 	}
-	for _, t := range conf.Genres {
-		tags = append(tags, Tag{
-			Name: t,
-			Type: TagTypesAvail["genre"],
-		})
+	for i, g := range conf.Genres {
+		if g {
+			tags = append(tags, GenresAvail[i].Tag())
+		}
 	}
-	for _, t := range conf.Languages {
-		tags = append(tags, Tag{
-			Name: t,
-			Type: TagTypesAvail["language"],
-		})
+	for i, l := range conf.Languages {
+		if l {
+			tags = append(tags, LangsAvail[i].Tag())
+		}
 	}
-	for _, t := range conf.Moods {
-		tags = append(tags, Tag{
-			Name: t,
-			Type: TagTypesAvail["mood"],
-		})
+	for i, m := range conf.Moods {
+		if m {
+			tags = append(tags, MoodsAvail[i].Tag())
+		}
 	}
 	return Media{
 		ID:         conf.ID,
@@ -262,9 +263,10 @@ func (m Media) ToConfig() MediaConfig {
 	Albums := make([]Album, 0)
 	Playlists := make([]string, 0)
 	Podcasts := make([]string, 0)
-	Genres := make([]string, 0)
-	Languages := make([]string, 0)
-	Moods := make([]string, 0)
+	Genres := [GenreNumber]bool{}
+	Languages := [LangNumber]bool{}
+	Moods := [MoodNumber]bool{}
+
 	var format MediaFormat
 
 	for _, t := range m.Tags {
@@ -288,11 +290,11 @@ func (m Media) ToConfig() MediaConfig {
 		case "podcast":
 			Podcasts = append(Podcasts, t.Name)
 		case "genre":
-			Genres = append(Genres, t.Name)
+			Genres[t.AsGenre().Id-1] = true
 		case "language":
-			Languages = append(Languages, t.Name)
+			Languages[t.AsLang().Id-1] = true
 		case "mood":
-			Moods = append(Moods, t.Name)
+			Moods[t.AsMood().Id-1] = true
 		}
 	}
 
@@ -321,12 +323,7 @@ func (conf MediaConfig) String() string {
 	b.WriteString(fmt.Sprintf("<b>Длительность:</b> %s\n", conf.Duration.Round(time.Second).String()))
 
 	if len(conf.Albums) > 0 {
-		s := make([]string, 0, len(conf.Albums))
-		for _, a := range conf.Albums {
-			s = append(s, a.Name)
-		}
-
-		b.WriteString(fmt.Sprintf("<b>Альбомы:</b> %s\n", strings.Join(s, ", ")))
+		b.WriteString(fmt.Sprintf("<b>Альбомы:</b> %s\n", slice.Join(conf.Albums, ", ")))
 	}
 	if len(conf.Podcasts) > 0 {
 		b.WriteString(fmt.Sprintf("<b>Подкасты:</b> %s\n", strings.Join(conf.Podcasts, ", ")))
@@ -335,13 +332,13 @@ func (conf MediaConfig) String() string {
 		b.WriteString(fmt.Sprintf("<b>Плейлисты:</b> %s\n", strings.Join(conf.Playlists, ", ")))
 	}
 	if len(conf.Genres) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Жанры:</b> %s\n", strings.Join(conf.Genres, ", ")))
+		b.WriteString(fmt.Sprintf("<b>Жанры:</b> %s\n", slice.Join(slice.Filter(GenresAvail[:], conf.Genres[:]), ", ")))
 	}
 	if len(conf.Languages) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Языки:</b> %s\n", strings.Join(conf.Languages, ", ")))
+		b.WriteString(fmt.Sprintf("<b>Языки:</b> %s\n", slice.Join(slice.Filter(LangsAvail[:], conf.Languages[:]), ", ")))
 	}
 	if len(conf.Moods) > 0 {
-		b.WriteString(fmt.Sprintf("<b>Настроение:</b> %s\n", strings.Join(conf.Moods, ", ")))
+		b.WriteString(fmt.Sprintf("<b>Настроение:</b> %s\n", slice.Join(slice.Filter(MoodsAvail[:], conf.Moods[:]), ", ")))
 	}
 
 	return b.String()

@@ -3,6 +3,8 @@ package setting
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -17,9 +19,13 @@ const (
 	cmdBase          ctr.Command = ""
 	cmdUpdateSetting ctr.Command = "update-setting"
 	cmdGetData       ctr.Command = "get-data"
+	cmdOpenCheckBox  ctr.Command = "check-open"
+	cmdCheckBtn      ctr.Command = "check-btn"
 	cmdCancelSetting ctr.Command = "cancel"
 	cmdSubmit        ctr.Command = "submit"
 	cmdClose         ctr.Command = "close"
+
+	cmdNoOp ctr.Command = "no-op"
 )
 
 type setting struct {
@@ -65,10 +71,14 @@ func Register(
 
 	router.RegisterCallbackPrefix(cmdUpdateSetting, s.updateSettings)
 	router.RegisterHandler(cmdGetData, s.getSettingNewData)
+	router.RegisterCallbackPrefix(cmdOpenCheckBox, s.openCheckBox)
+	router.RegisterCallbackPrefix(cmdCheckBtn, s.getCheckedBtn)
 	router.RegisterCallback(cmdCancelSetting, s.cancelSubTask)
 
 	router.RegisterCallback(cmdSubmit, s.submit)
 	router.RegisterCallback(cmdClose, s.close)
+
+	router.RegisterCallback(cmdNoOp, s.nullHandler)
 }
 
 func (s *setting) init(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -108,9 +118,6 @@ func (s *setting) updateSettings(ctx context.Context, b *bot.Bot, update *models
 	case "author":
 		s.targetStorage.Set(chatId, "author")
 		msg = ctr.LibSearchUpdateAskAuthor
-	case "genre":
-		s.targetStorage.Set(chatId, "genre")
-		msg = ctr.LibSearchUpdateAskGenre
 	case "format":
 		conf := s.mediaConfigStorage.Get(chatId)
 		switch conf.Format {
@@ -147,12 +154,6 @@ func (s *setting) updateSettings(ctx context.Context, b *bot.Bot, update *models
 			msg = ctr.LibSearchUpdateAskPodcast
 		}
 		s.targetStorage.Set(chatId, state)
-	case "lang":
-		s.targetStorage.Set(chatId, "lang")
-		msg = ctr.LibSearchUpdateAskLang
-	case "mood":
-		s.targetStorage.Set(chatId, "mood")
-		msg = ctr.LibSearchUpdateAskMood
 	case "reset":
 		conf := s.initialConfigStorage.Get(chatId)
 		s.mediaConfigStorage.Set(chatId, conf)
@@ -209,16 +210,10 @@ func (s *setting) getSettingNewData(ctx context.Context, b *bot.Bot, update *mod
 		conf.Name = msg
 	case "author":
 		conf.Author = msg
-	case "genre":
-		conf.Genres = split.SplitMsg(msg)
 	case "podcasts":
 		conf.Podcasts = split.SplitMsg(msg)
 	case "playlists":
 		conf.Playlists = split.SplitMsg(msg)
-	case "lang":
-		conf.Languages = split.SplitMsg(msg)
-	case "mood":
-		conf.Moods = split.SplitMsg(msg)
 	}
 
 	s.session.Redirect(chatId, ctr.NullStatus)
@@ -236,6 +231,112 @@ func (s *setting) getSettingNewData(ctx context.Context, b *bot.Bot, update *mod
 		MessageID:   s.msgIdStorage.Get(chatId),
 		Text:        conf.String(),
 		ReplyMarkup: s.MainSettingsMarkup(conf),
+		ParseMode:   models.ParseModeHTML,
+	}); err != nil {
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+	}
+}
+
+func (s *setting) openCheckBox(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "upload.openCheckBox"
+
+	s.CallbackAnswer(ctx, b, update.CallbackQuery)
+
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
+	callback := s.router.GetState(update.CallbackQuery.Data)
+
+	var (
+		msg    string
+		markup models.InlineKeyboardMarkup
+	)
+
+	conf := s.mediaConfigStorage.Get(chatId)
+
+	switch callback {
+	case "genre":
+		msg = ctr.LibUploadAskGenre
+		markup = s.genreChooseMarkup(conf)
+	case "mood":
+		msg = ctr.LibUploadAskMood
+		markup = s.moodChooseMarkup(conf)
+	case "lang":
+		msg = ctr.LibUploadAskLang
+		markup = s.langChooseMarkup(conf)
+	}
+
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:      chatId,
+		MessageID:   s.msgIdStorage.Get(chatId),
+		Text:        msg,
+		ReplyMarkup: markup,
+		ParseMode:   models.ParseModeHTML,
+	}); err != nil {
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+	}
+}
+
+func (s *setting) getCheckedBtn(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "upload.getCheckedBtn"
+
+	s.CallbackAnswer(ctx, b, update.CallbackQuery)
+
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
+	callback := s.router.GetState(update.CallbackQuery.Data)
+
+	// tagType in ('genre', 'mood', 'lang')
+	// data is tag id (from 1 to GenreNumber, MoodNumber, LangNumber)
+	tagType, data, found := strings.Cut(callback, "-")
+	if !found {
+		s.onError(fmt.Errorf("%s [%d]: invalid callback data \"%s\"", op, chatId, callback))
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrorMessage,
+		}); err != nil {
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		}
+		return
+	}
+	id, err := strconv.Atoi(data)
+	if err != nil {
+		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrorMessage,
+		}); err != nil {
+			s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		}
+		return
+	}
+
+	conf := s.mediaConfigStorage.Get(chatId)
+
+	var (
+		msg    string
+		markup models.InlineKeyboardMarkup
+	)
+
+	switch tagType {
+	case "genre":
+		conf.Genres[id-1] = !conf.Genres[id-1]
+		msg = ctr.LibSearchUpdateAskGenre
+		markup = s.genreChooseMarkup(conf)
+	case "mood":
+		conf.Moods[id-1] = !conf.Moods[id-1]
+		msg = ctr.LibSearchUpdateAskMood
+		markup = s.moodChooseMarkup(conf)
+	case "lang":
+		conf.Languages[id-1] = !conf.Languages[id-1]
+		msg = ctr.LibSearchUpdateAskLang
+		markup = s.langChooseMarkup(conf)
+	}
+
+	s.mediaConfigStorage.Set(chatId, conf)
+
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:      chatId,
+		MessageID:   s.msgIdStorage.Get(chatId),
+		Text:        msg,
+		ReplyMarkup: markup,
 		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
 		s.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
@@ -272,4 +373,8 @@ func (s *setting) close(ctx context.Context, b *bot.Bot, update *models.Update) 
 	s.CallbackAnswer(ctx, b, update.CallbackQuery)
 
 	s.onCancel(ctx, b, update.CallbackQuery.Message)
+}
+
+func (s *setting) nullHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+	s.CallbackAnswer(ctx, b, update.CallbackQuery)
 }

@@ -31,6 +31,8 @@ const (
 	// settings
 	cmdSettings      ctr.Command = "settings"
 	cmdGetData       ctr.Command = "get-data"
+	cmdOpenCheckBox  ctr.Command = "check-open"
+	cmdCheckBtn      ctr.Command = "check-btn"
 	cmdSubmit        ctr.Command = "submit"
 	cmdCancel        ctr.Command = "cancel"
 	cmdCancelSetting ctr.Command = "cancel-settings"
@@ -102,6 +104,8 @@ func Register(
 	// settings
 	router.RegisterCallbackPrefix(cmdSettings, u.updateSettings)
 	router.RegisterHandler(cmdGetData, u.getSettingNewData)
+	router.RegisterCallbackPrefix(cmdOpenCheckBox, u.openCheckBox)
+	router.RegisterCallbackPrefix(cmdCheckBtn, u.getCheckedBtn)
 	router.RegisterCallback(cmdCancelSetting, u.cancelSubTask)
 	router.RegisterCallback(cmdSubmit, u.submit)
 	router.RegisterCallback(cmdCancel, u.returnToMainMenu)

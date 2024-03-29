@@ -3,25 +3,30 @@ package autodj
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 
 	ctr "github.com/GintGld/fizteh-radio-bot/internal/controller"
+	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/slice"
 	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/split"
 	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/storage"
 	localModels "github.com/GintGld/fizteh-radio-bot/internal/models"
 )
 
 const (
-	cmdUpdate      ctr.Command = "update"
-	cmdGetUpdate   ctr.Command = "get-update"
-	cmdReset       ctr.Command = "reset"
-	cmdGetCurrConf ctr.Command = "submit"
-	cmdCancel      ctr.Command = "cancel"
-	cmdSend        ctr.Command = "send"
-	cmdStartStop   ctr.Command = "start-stop"
+	cmdUpdate       ctr.Command = "update"
+	cmdGetUpdate    ctr.Command = "get-update"
+	cmdReset        ctr.Command = "reset"
+	cmdGetCurrConf  ctr.Command = "submit"
+	cmdCancel       ctr.Command = "cancel"
+	cmdSend         ctr.Command = "send"
+	cmdStartStop    ctr.Command = "start-stop"
+	cmdOpenCheckBox ctr.Command = "open-check"
+	cmdCheckBtn     ctr.Command = "check"
+	cmdCloseSubtask ctr.Command = "close-subtask"
 
 	cmdNoOp ctr.Command = "no-op"
 )
@@ -76,16 +81,15 @@ func Register(
 	router.RegisterCallbackPrefix(cmdUpdate, a.update)
 	router.RegisterHandler(cmdGetUpdate, a.getUpdate)
 	router.RegisterCallback(cmdReset, a.reset)
-
-	// update
-	router.RegisterCallback(cmdGetCurrConf, a.getCurrConf)
-	router.RegisterCallback(cmdSend, a.send)
+	router.RegisterCallbackPrefix(cmdOpenCheckBox, a.openCheckBox)
+	router.RegisterCallbackPrefix(cmdCheckBtn, a.getCheckedBtn)
+	router.RegisterCallback(cmdCloseSubtask, a.closeSubtask)
 
 	// start, stop
 	router.RegisterCallback(cmdStartStop, a.startStop)
 
 	// send
-	router.RegisterCallback(cmdSend, nil)
+	router.RegisterCallback(cmdSend, a.commitConfig)
 
 	// filler
 	router.RegisterCallback(cmdNoOp, a.nullHandler)
@@ -133,67 +137,6 @@ func (a *autodj) init(ctx context.Context, b *bot.Bot, update *models.Update) {
 	a.msgIdStorage.Set(chatId, msg.ID)
 }
 
-func (a *autodj) getCurrConf(ctx context.Context, b *bot.Bot, update *models.Update) {
-	const op = "autodj.getCurrConf"
-
-	a.CallbackAnswer(ctx, b, update.CallbackQuery)
-
-	chatId := update.CallbackQuery.Message.Message.Chat.ID
-
-	res, err := a.dj.Config(ctx, chatId)
-	if err != nil {
-		// handle errors
-		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: chatId,
-			Text:   ctr.ErrorMessage,
-		}); err != nil {
-			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
-		}
-		return
-	}
-
-	a.confStorage.Set(chatId, res)
-
-	msg, err := b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatId,
-		Text:        a.configRepr(res),
-		ReplyMarkup: a.mainMenuMarkup(res),
-		ParseMode:   models.ParseModeHTML,
-	})
-	if err != nil {
-		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
-	}
-
-	a.msgIdStorage.Set(chatId, msg.ID)
-}
-
-func (a *autodj) send(ctx context.Context, b *bot.Bot, update *models.Update) {
-	const op = "autodj.send"
-
-	a.CallbackAnswer(ctx, b, update.CallbackQuery)
-
-	chatId := update.CallbackQuery.Message.Message.Chat.ID
-
-	if err := a.dj.SetConfig(ctx, chatId, a.confStorage.Get(chatId)); err != nil {
-		// handle errors
-		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: chatId,
-			Text:   ctr.ErrorMessage,
-		}); err != nil {
-			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
-		}
-		return
-	}
-
-	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
-		ChatID:    chatId,
-		MessageID: a.msgIdStorage.Get(chatId),
-		Text:      ctr.ErrorMessage,
-	}); err != nil {
-		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
-	}
-}
-
 func (a *autodj) update(ctx context.Context, b *bot.Bot, update *models.Update) {
 	const op = "autodj.update"
 
@@ -208,14 +151,8 @@ func (a *autodj) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 	target := a.router.GetState(update.CallbackQuery.Data)
 
 	switch target {
-	case "genre":
-		msg = ctr.SchAutoDJAskGenre
 	case "playlist":
 		msg = ctr.SchAutoDJAskPlaylist
-	case "language":
-		msg = ctr.SchAutoDJAskLanguage
-	case "mood":
-		msg = ctr.SchAutoDJAskMood
 	}
 
 	a.targetUpdateStorage.Set(chatId, target)
@@ -225,6 +162,132 @@ func (a *autodj) update(ctx context.Context, b *bot.Bot, update *models.Update) 
 		ChatID:    chatId,
 		MessageID: a.msgIdStorage.Get(chatId),
 		Text:      msg,
+	}); err != nil {
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+	}
+}
+
+func (a *autodj) openCheckBox(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "upload.openCheckBox"
+
+	a.CallbackAnswer(ctx, b, update.CallbackQuery)
+
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
+	callback := a.router.GetState(update.CallbackQuery.Data)
+
+	var (
+		msg    string
+		markup models.InlineKeyboardMarkup
+	)
+
+	conf := a.confStorage.Get(chatId)
+
+	switch callback {
+	case "genre":
+		msg = ctr.SchAutoDJAskGenre
+		markup = a.genreChooseMarkup(conf)
+	case "mood":
+		msg = ctr.SchAutoDJAskMood
+		markup = a.moodChooseMarkup(conf)
+	case "lang":
+		msg = ctr.SchAutoDJAskLanguage
+		markup = a.langChooseMarkup(conf)
+	}
+
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:      chatId,
+		MessageID:   a.msgIdStorage.Get(chatId),
+		Text:        msg,
+		ReplyMarkup: markup,
+		ParseMode:   models.ParseModeHTML,
+	}); err != nil {
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+	}
+}
+
+func (a *autodj) getCheckedBtn(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "upload.getCheckedBtn"
+
+	a.CallbackAnswer(ctx, b, update.CallbackQuery)
+
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
+	callback := a.router.GetState(update.CallbackQuery.Data)
+
+	// tagType in ('genre', 'mood', 'lang')
+	// data is tag id (from 1 to GenreNumber, MoodNumber, LangNumber)
+	tagType, data, found := strings.Cut(callback, "-")
+	if !found {
+		a.onError(fmt.Errorf("%s [%d]: invalid callback data \"%s\"", op, chatId, callback))
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrorMessage,
+		}); err != nil {
+			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		}
+		return
+	}
+	id, err := strconv.Atoi(data)
+	if err != nil {
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrorMessage,
+		}); err != nil {
+			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		}
+		return
+	}
+
+	conf := a.confStorage.Get(chatId)
+
+	var (
+		msg    string
+		markup models.InlineKeyboardMarkup
+	)
+
+	switch tagType {
+	case "genre":
+		conf.Genres[id-1] = !conf.Genres[id-1]
+		msg = ctr.LibSearchUpdateAskGenre
+		markup = a.genreChooseMarkup(conf)
+	case "mood":
+		conf.Moods[id-1] = !conf.Moods[id-1]
+		msg = ctr.LibSearchUpdateAskMood
+		markup = a.moodChooseMarkup(conf)
+	case "lang":
+		conf.Languages[id-1] = !conf.Languages[id-1]
+		msg = ctr.LibSearchUpdateAskLang
+		markup = a.langChooseMarkup(conf)
+	}
+
+	a.confStorage.Set(chatId, conf)
+
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:      chatId,
+		MessageID:   a.msgIdStorage.Get(chatId),
+		Text:        msg,
+		ReplyMarkup: markup,
+		ParseMode:   models.ParseModeHTML,
+	}); err != nil {
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+	}
+}
+
+func (a *autodj) closeSubtask(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "autodj.closeSubtask"
+
+	a.CallbackAnswer(ctx, b, update.CallbackQuery)
+
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
+
+	info := a.confStorage.Get(chatId)
+
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:      chatId,
+		MessageID:   a.msgIdStorage.Get(chatId),
+		Text:        a.configRepr(info),
+		ReplyMarkup: a.mainMenuMarkup(info),
+		ParseMode:   models.ParseModeHTML,
 	}); err != nil {
 		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
@@ -278,7 +341,6 @@ func (a *autodj) startStop(ctx context.Context, b *bot.Bot, update *models.Updat
 	}); err != nil {
 		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
 	}
-
 }
 
 func (a *autodj) getUpdate(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -290,14 +352,8 @@ func (a *autodj) getUpdate(ctx context.Context, b *bot.Bot, update *models.Updat
 	conf := a.confStorage.Get(chatId)
 
 	switch a.targetUpdateStorage.Get(chatId) {
-	case "genre":
-		conf.Genres = split.SplitMsg(msg)
 	case "playlist":
 		conf.Playlists = split.SplitMsg(msg)
-	case "language":
-		conf.Languages = split.SplitMsg(msg)
-	case "mood":
-		conf.Moods = split.SplitMsg(msg)
 	}
 
 	a.targetUpdateStorage.Del(chatId)
@@ -331,7 +387,7 @@ func (a *autodj) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
 
 	currentConf, err := a.dj.Config(ctx, chatId)
 	if err != nil {
-		// handle errors
+		// TODO handle errors
 		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: chatId,
 			Text:   ctr.ErrorMessage,
@@ -354,20 +410,50 @@ func (a *autodj) reset(ctx context.Context, b *bot.Bot, update *models.Update) {
 	}
 }
 
+func (a *autodj) commitConfig(ctx context.Context, b *bot.Bot, update *models.Update) {
+	const op = "autodj.commitConfig"
+
+	a.CallbackAnswer(ctx, b, update.CallbackQuery)
+
+	chatId := update.CallbackQuery.Message.Message.Chat.ID
+
+	info := a.confStorage.Get(chatId)
+
+	if err := a.dj.SetConfig(ctx, chatId, info); err != nil {
+		// TODO handle errors
+		if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: chatId,
+			Text:   ctr.ErrorMessage,
+		}); err != nil {
+			a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+		}
+		return
+	}
+
+	// handle errors
+	if _, err := b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:    chatId,
+		MessageID: a.msgIdStorage.Get(chatId),
+		Text:      ctr.SchAutoDJSuccess,
+	}); err != nil {
+		a.onError(fmt.Errorf("%s [%d]: %w", op, chatId, err))
+	}
+}
+
 func (a *autodj) nullHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	a.CallbackAnswer(ctx, b, update.CallbackQuery)
 }
 
-func (a *autodj) configRepr(conf localModels.AutoDJInfo) string {
+func (a *autodj) configRepr(info localModels.AutoDJInfo) string {
 	var b strings.Builder
 
 	b.WriteString("<b>Настройки автодиджея:</b>\n")
-	b.WriteString(fmt.Sprintf("<b>Жанры:</b> %s\n", strings.Join(conf.Genres, ", ")))
-	b.WriteString(fmt.Sprintf("<b>Плейлисты:</b> %s\n", strings.Join(conf.Playlists, ", ")))
-	b.WriteString(fmt.Sprintf("<b>Языки:</b> %s\n", strings.Join(conf.Languages, ", ")))
-	b.WriteString(fmt.Sprintf("<b>Настроения:</b> %s\n", strings.Join(conf.Moods, ", ")))
+	b.WriteString(fmt.Sprintf("<b>Жанры:</b> %s\n", slice.Join(slice.Filter(localModels.GenresAvail[:], info.Genres[:]), ", ")))
+	b.WriteString(fmt.Sprintf("<b>Плейлисты:</b> %s\n", strings.Join(info.Playlists, ", ")))
+	b.WriteString(fmt.Sprintf("<b>Языки:</b> %s\n", slice.Join(slice.Filter(localModels.LangsAvail[:], info.Languages[:]), ", ")))
+	b.WriteString(fmt.Sprintf("<b>Настроения:</b> %s\n", slice.Join(slice.Filter(localModels.MoodsAvail[:], info.Moods[:]), ", ")))
 
-	if conf.IsPlaying {
+	if info.IsPlaying {
 		b.WriteString("<b>Сейчас играет</b>")
 	} else {
 		b.WriteString("<b>Сейчас не играет</b>")

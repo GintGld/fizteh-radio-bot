@@ -117,15 +117,72 @@ type MediaFilter struct {
 
 type AutoDJInfo struct {
 	IsPlaying bool
-	Genres    []string
+	Genres    [GenreNumber]bool
 	Playlists []string
-	Languages []string
-	Moods     []string
+	Languages [LangNumber]bool
+	Moods     [MoodNumber]bool
 }
 
 // TODO add stub
 type AutoDJConfig struct {
 	Tags TagList `json:"tags"`
+}
+
+func (a AutoDJInfo) ToConfig() AutoDJConfig {
+	tags := make(TagList, len(a.Genres)+len(a.Playlists)+len(a.Languages)+len(a.Moods))
+
+	for i, g := range a.Genres {
+		if g {
+			tags = append(tags, GenresAvail[i].Tag())
+		}
+	}
+	for i, m := range a.Moods {
+		if m {
+			tags = append(tags, MoodsAvail[i].Tag())
+		}
+	}
+	for i, l := range a.Languages {
+		if l {
+			tags = append(tags, LangsAvail[i].Tag())
+		}
+	}
+	for _, p := range a.Playlists {
+		tags = append(tags, Tag{
+			Name: p,
+			Type: TagTypesAvail["playlist"],
+		})
+	}
+
+	return AutoDJConfig{
+		Tags: tags,
+	}
+}
+
+func (a AutoDJConfig) ToInfo() AutoDJInfo {
+	playlists := make([]string, 0)
+	genres := [GenreNumber]bool{}
+	moods := [MoodNumber]bool{}
+	langs := [LangNumber]bool{}
+
+	for _, t := range a.Tags {
+		switch t.Type.Name {
+		case "playlist":
+			playlists = append(playlists, t.Name)
+		case "genre":
+			genres[t.AsGenre().Id-1] = true
+		case "mood":
+			moods[t.AsMood().Id-1] = true
+		case "language":
+			langs[t.AsLang().Id-1] = true
+		}
+	}
+
+	return AutoDJInfo{
+		Playlists: playlists,
+		Genres:    genres,
+		Moods:     moods,
+		Languages: langs,
+	}
 }
 
 type TagTypes []TagType

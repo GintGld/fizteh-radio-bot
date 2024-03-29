@@ -227,20 +227,7 @@ func (s *schedule) Config(ctx context.Context, id int64) (models.AutoDJInfo, err
 		return models.AutoDJInfo{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	var info models.AutoDJInfo
-
-	for _, e := range conf.Tags {
-		switch e.Type {
-		case models.TagTypesAvail["genre"]:
-			info.Genres = append(info.Genres, e.Name)
-		case models.TagTypesAvail["playlist"]:
-			info.Playlists = append(info.Playlists, e.Name)
-		case models.TagTypesAvail["mood"]:
-			info.Moods = append(info.Moods, e.Name)
-		case models.TagTypesAvail["language"]:
-			info.Languages = append(info.Languages, e.Name)
-		}
-	}
+	info := conf.ToInfo()
 
 	info.IsPlaying, err = s.djClient.IsAutoDJPlaying(ctx, token)
 	if err != nil {
@@ -269,36 +256,7 @@ func (s *schedule) SetConfig(ctx context.Context, id int64, info models.AutoDJIn
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	tags := make(models.TagList, len(info.Genres)+len(info.Languages)+len(info.Moods)+len(info.Playlists))
-
-	for _, e := range info.Genres {
-		tags = append(tags, models.Tag{
-			Name: e,
-			Type: models.TagTypesAvail["genre"],
-		})
-	}
-	for _, e := range info.Playlists {
-		tags = append(tags, models.Tag{
-			Name: e,
-			Type: models.TagTypesAvail["playlist"],
-		})
-	}
-	for _, e := range info.Moods {
-		tags = append(tags, models.Tag{
-			Name: e,
-			Type: models.TagTypesAvail["mood"],
-		})
-	}
-	for _, e := range info.Languages {
-		tags = append(tags, models.Tag{
-			Name: e,
-			Type: models.TagTypesAvail["language"],
-		})
-	}
-
-	conf := models.AutoDJConfig{
-		Tags: tags,
-	}
+	conf := info.ToConfig()
 
 	if err := s.djClient.SetConfig(ctx, token, conf); err != nil {
 		log.Error(

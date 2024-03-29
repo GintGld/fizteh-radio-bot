@@ -97,10 +97,10 @@ const (
 	SchEmptySchedule = "Расписание пока пусто"
 
 	// "/sch/autodj"
-	SchAutoDJAskGenre    = "Введи через запятую жанры."
-	SchAutoDJAskPlaylist = "Введи через запятую плейлисты, куда добавить песню."
-	SchAutoDJAskLanguage = "Введи через запятую языки."
-	SchAutoDJAskMood     = "Введи через запятую настроения."
+	SchAutoDJAskGenre    = "Выбирай жанры."
+	SchAutoDJAskPlaylist = "Введи через запятую плейлисты."
+	SchAutoDJAskLanguage = "Выбирай языки."
+	SchAutoDJAskMood     = "Выбирай настроения."
 	SchAutoDJSuccess     = "Успешно обновлено."
 
 	// TODO: write help message

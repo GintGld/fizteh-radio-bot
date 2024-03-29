@@ -105,7 +105,7 @@ func (s *search) mediaSliderMarkup(id int, maxId int) models.InlineKeyboardMarku
 			},
 			{
 				{Text: butMsgAddToSch, CallbackData: s.router.Path(cmdSelectMedia)},
-				{Text: butMsgPlayNext, CallbackData: s.router.Path(cmdNoOp)}, // TODO
+				{Text: butMsgPlayNext, CallbackData: s.router.Path(cmdAddToQueue)},
 			},
 			{
 				{Text: butMsgEdit, CallbackData: s.router.Path(cmdUpdateMediaInfo)},

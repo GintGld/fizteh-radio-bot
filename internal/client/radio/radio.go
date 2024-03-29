@@ -490,10 +490,10 @@ func (c *Client) NewSegment(ctx context.Context, token jwt.Token, segm models.Se
 	bodyReq, err := json.Marshal(map[string]any{
 		"segment": map[string]any{
 			"mediaID":   segm.Media.ID,
-			"Start":     segm.Start,
-			"BeginCut":  segm.BeginCut,
-			"StopCut":   segm.StopCut,
-			"Protected": segm.Protected,
+			"start":     segm.Start,
+			"beginCut":  segm.BeginCut,
+			"stopCut":   segm.StopCut,
+			"protected": segm.Protected,
 		},
 	})
 	if err != nil {

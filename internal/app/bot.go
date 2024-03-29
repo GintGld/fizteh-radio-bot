@@ -88,6 +88,7 @@ func New(
 	var (
 		auth           start.Auth
 		libSearchSrv   search.Library
+		schSearchSrv   search.Schedule
 		scheduleAddSrv datetime.ScheduleAdd
 		mediaUploadSrv upload.MediaUpload
 		getScheduleSrv schedule.Schedule
@@ -99,6 +100,7 @@ func New(
 
 		auth = filler
 		libSearchSrv = filler
+		schSearchSrv = filler
 		scheduleAddSrv = filler
 		mediaUploadSrv = filler
 		getScheduleSrv = filler
@@ -125,6 +127,7 @@ func New(
 
 		auth = a
 		libSearchSrv = l
+		schSearchSrv = s
 		scheduleAddSrv = s
 		mediaUploadSrv = l
 		getScheduleSrv = s
@@ -153,6 +156,7 @@ func New(
 		router.With("lib"),
 		auth,
 		libSearchSrv,
+		schSearchSrv,
 		scheduleAddSrv,
 		session,
 		errorHandler,

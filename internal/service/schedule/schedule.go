@@ -4,11 +4,19 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
+	"time"
 
 	"github.com/GintGld/fizteh-radio-bot/internal/lib/logger/sl"
 	"github.com/GintGld/fizteh-radio-bot/internal/models"
 
 	"github.com/golang-jwt/jwt/v5"
+)
+
+const (
+	// It is supposed that no segment duration
+	// will be less or equal to second.
+	timeEps = time.Second
 )
 
 type schedule struct {
@@ -84,6 +92,71 @@ func (s *schedule) NewSegment(ctx context.Context, id int64, segm models.Segment
 	}
 
 	return nil
+}
+
+func (s *schedule) AddToQueue(ctx context.Context, id int64, media models.MediaConfig) (models.Segment, error) {
+	const op = "schedule.AddToQueue"
+
+	log := s.log.With(
+		slog.String("op", op),
+		slog.Int64("userId", id),
+		slog.Int64("mediaId", media.ID),
+	)
+
+	token, err := s.auth.Token(ctx, id)
+	if err != nil {
+		log.Error("failed to get token", sl.Err(err))
+		return models.Segment{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	res, err := s.Schedule(ctx, id)
+	if err != nil {
+		log.Error("failed to get schedule", sl.Err(err))
+		return models.Segment{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	now := time.Now()
+
+	// Find first protected segment which is "after now".
+	if j := slices.IndexFunc(res, func(s models.Segment) bool {
+		return s.Start.Add(s.StopCut-s.BeginCut).After(now) && s.Protected
+	}); j != -1 {
+		// Cut uneccessary segments
+		// (too early or not protected)
+		res = slices.DeleteFunc(res[j:], func(s models.Segment) bool {
+			return !s.Protected
+		})
+	} else {
+		res = []models.Segment{}
+	}
+
+	supposedStart := now
+	dur := media.Duration
+
+	// If media does not fit into this time slot
+	// move to the end of those segment.
+	for _, segm := range res {
+		if dur > segm.Start.Sub(supposedStart) {
+			supposedStart = segm.Start.Add(segm.StopCut - segm.BeginCut + timeEps)
+			continue
+		}
+		break
+	}
+
+	segm := models.Segment{
+		Media:     media.ToMedia(),
+		Start:     supposedStart,
+		BeginCut:  0,
+		StopCut:   media.Duration,
+		Protected: true,
+	}
+
+	if err := s.schClient.NewSegment(ctx, token, segm); err != nil {
+		log.Error("failed to add segment", sl.Err(err))
+		return models.Segment{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return segm, nil
 }
 
 func (s *schedule) Schedule(ctx context.Context, id int64) ([]models.Segment, error) {

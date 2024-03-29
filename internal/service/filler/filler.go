@@ -93,6 +93,10 @@ func (f *Filler) NewSegment(_ context.Context, _ int64, _ models.Segment) error 
 	return nil
 }
 
+func (f *Filler) AddToQueue(_ context.Context, _ int64, _ models.MediaConfig) (models.Segment, error) {
+	return random.Segment(), nil
+}
+
 func (f *Filler) Config(_ context.Context, _ int64) (models.AutoDJInfo, error) {
 	f.confMutex.Lock()
 	defer f.confMutex.Unlock()

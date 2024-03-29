@@ -31,6 +31,7 @@ const (
 	cmdCloseSlider     ctr.Command = "cancel"
 	cmdSelectMedia     ctr.Command = "select"
 	cmdUpdateMediaInfo ctr.Command = "update-media"
+	cmdAddToQueue      ctr.Command = "add-queue"
 	cmdDeleteMedia     ctr.Command = "delete"
 	cmdDeleteSubmit    ctr.Command = "delete-submit"
 	cmdDeleteReject    ctr.Command = "delete-reject"
@@ -45,6 +46,7 @@ type search struct {
 	router  *ctr.Router
 	auth    Auth
 	lib     Library
+	sch     Schedule
 	session ctr.Session
 	onError bot.ErrorsHandler
 
@@ -64,6 +66,10 @@ type Library interface {
 	Search(ctx context.Context, id int64, filter localModels.MediaFilter) ([]localModels.MediaConfig, error)
 	UpdateMedia(ctx context.Context, id int64, mediaConf localModels.MediaConfig) error
 	DeleteMedia(ctx context.Context, id int64, mediaConf localModels.MediaConfig) error
+}
+
+type Schedule interface {
+	AddToQueue(ctx context.Context, id int64, media localModels.MediaConfig) (localModels.Segment, error)
 }
 
 type searchOption struct {
@@ -130,6 +136,7 @@ func Register(
 	router *ctr.Router,
 	auth Auth,
 	lib Library,
+	sch Schedule,
 	scheduleAdd datetime.ScheduleAdd,
 	session ctr.Session,
 	onError bot.ErrorsHandler,
@@ -138,6 +145,7 @@ func Register(
 		router:  router,
 		auth:    auth,
 		lib:     lib,
+		sch:     sch,
 		session: session,
 		onError: onError,
 
@@ -164,6 +172,7 @@ func Register(
 	// media slider
 	router.RegisterCallbackPrefix(cmdUpdateSlide, s.updateSlide)
 	router.RegisterCallback(cmdCloseSlider, s.cancelSlider)
+	router.RegisterCallback(cmdAddToQueue, s.addToQueue)
 
 	// selector for schedule modify
 	datetime.Register(

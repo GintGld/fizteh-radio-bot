@@ -215,5 +215,9 @@ func (s *search) deleteReject(ctx context.Context, b *bot.Bot, update *models.Up
 }
 
 func (s *search) successMsg(start, stop time.Time) string {
-	return fmt.Sprintf("Добавлено в расписание с %s по %s.", start.Format("06-01-02 15:04:05"), stop.Format("15:04:05"))
+	return fmt.Sprintf(
+		"Добавлено в расписание с %s по %s.",
+		start.Format("06-01-02 15:04:05"),
+		stop.Format("15:04:05"),
+	)
 }

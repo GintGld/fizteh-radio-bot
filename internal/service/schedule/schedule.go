@@ -13,12 +13,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-const (
-	// It is supposed that no segment duration
-	// will be less or equal to second.
-	timeEps = time.Second
-)
-
 type schedule struct {
 	log       *slog.Logger
 	auth      Auth
@@ -47,6 +41,11 @@ type AutoDJClient interface {
 	StopAutoDJ(ctx context.Context, token jwt.Token) error
 	IsAutoDJPlaying(ctx context.Context, token jwt.Token) (bool, error)
 }
+
+// TODO: move this to config
+const (
+	delay = 10 * time.Second
+)
 
 func New(
 	log *slog.Logger,
@@ -115,7 +114,7 @@ func (s *schedule) AddToQueue(ctx context.Context, id int64, media models.MediaC
 		return models.Segment{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	now := time.Now()
+	now := time.Now().Add(delay)
 
 	// Find first protected segment which is "after now".
 	if j := slices.IndexFunc(res, func(s models.Segment) bool {
@@ -137,7 +136,7 @@ func (s *schedule) AddToQueue(ctx context.Context, id int64, media models.MediaC
 	// move to the end of those segment.
 	for _, segm := range res {
 		if dur > segm.Start.Sub(supposedStart) {
-			supposedStart = segm.Start.Add(segm.StopCut - segm.BeginCut + timeEps)
+			supposedStart = segm.Start.Add(segm.StopCut - segm.BeginCut)
 			continue
 		}
 		break

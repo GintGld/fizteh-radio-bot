@@ -20,7 +20,7 @@ const (
 
 	butMsgAddToSch = "Запланировать"
 	butMsgEdit     = "Редактировать"
-	butMsgPlayNext = "Играть следующим"
+	butMsgPlayNext = "Добавить в очередь"
 	butMsgDelete   = "Удалить"
 
 	butMsgSubmit = "Искать"

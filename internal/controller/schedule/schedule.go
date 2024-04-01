@@ -105,7 +105,7 @@ func (s *schedule) init(ctx context.Context, b *bot.Bot, update *models.Update) 
 	}
 
 	pages := len(res) / pageSize
-	if len(res)%pageSize != 0 {
+	if len(res)%pageSize != 0 || pages == 0 {
 		pages++
 	}
 

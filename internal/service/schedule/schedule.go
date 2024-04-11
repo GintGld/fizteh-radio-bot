@@ -14,11 +14,12 @@ import (
 )
 
 type schedule struct {
-	log       *slog.Logger
-	auth      Auth
-	libClient LibraryClient
-	schClient ScheduleClient
-	djClient  AutoDJClient
+	log        *slog.Logger
+	auth       Auth
+	libClient  LibraryClient
+	schClient  ScheduleClient
+	djClient   AutoDJClient
+	liveClient LiveClient
 }
 
 type Auth interface {
@@ -42,6 +43,12 @@ type AutoDJClient interface {
 	IsAutoDJPlaying(ctx context.Context, token jwt.Token) (bool, error)
 }
 
+type LiveClient interface {
+	StartLive(ctx context.Context, token jwt.Token, live models.Live) error
+	StopLive(ctx context.Context, token jwt.Token) error
+	LiveInfo(ctx context.Context, token jwt.Token) (models.Live, error)
+}
+
 // TODO: move this to config
 const (
 	delay = 10 * time.Second
@@ -53,13 +60,15 @@ func New(
 	libClient LibraryClient,
 	schClient ScheduleClient,
 	djClient AutoDJClient,
+	liveClient LiveClient,
 ) *schedule {
 	return &schedule{
-		log:       log,
-		auth:      auth,
-		libClient: libClient,
-		schClient: schClient,
-		djClient:  djClient,
+		log:        log,
+		auth:       auth,
+		libClient:  libClient,
+		schClient:  schClient,
+		djClient:   djClient,
+		liveClient: liveClient,
 	}
 }
 
@@ -322,4 +331,77 @@ func (s *schedule) StopAutoDJ(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+func (s *schedule) StartLive(ctx context.Context, id int64, live models.Live) error {
+	const op = "schedule.startLive"
+
+	log := s.log.With(
+		slog.String("op", op),
+		slog.Int64("userId", id),
+	)
+
+	token, err := s.auth.Token(ctx, id)
+	if err != nil {
+		log.Error("failed to get token", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := s.liveClient.StartLive(ctx, token, live); err != nil {
+		log.Error("failed to start live", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (s *schedule) StopLive(ctx context.Context, id int64) error {
+	const op = "schedule.StopLive"
+
+	log := s.log.With(
+		slog.String("op", op),
+		slog.Int64("userId", id),
+	)
+
+	token, err := s.auth.Token(ctx, id)
+	if err != nil {
+		log.Error("failed to get token", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := s.liveClient.StopLive(ctx, token); err != nil {
+		log.Error("failed to stop live", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+func (s *schedule) LiveInfo(ctx context.Context, id int64) (models.Live, error) {
+	const op = "schedule.LiveInfo"
+
+	log := s.log.With(
+		slog.String("op", op),
+		slog.Int64("userId", id),
+	)
+
+	token, err := s.auth.Token(ctx, id)
+	if err != nil {
+		log.Error(
+			"failed to get token",
+			sl.Err(err),
+		)
+		return models.Live{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	info, err := s.liveClient.LiveInfo(ctx, token)
+	if err != nil {
+		log.Error(
+			"failed to get schedule",
+			sl.Err(err),
+		)
+		return models.Live{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return info, nil
 }

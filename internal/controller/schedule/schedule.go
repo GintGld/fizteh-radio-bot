@@ -212,8 +212,8 @@ func (s *schedule) scheduleFormat(sch []localModels.Segment, page int) string {
 	for _, s := range sch[startId:stopId] {
 		b.WriteString(fmt.Sprintf(
 			"[%s-%s]\n%s \u2014 %s\n",
-			s.Start.Format("01-02 15:04:05"),
-			s.Start.Add(s.StopCut-s.BeginCut).Format("15:04:05"),
+			s.Start.Add(localModels.TimeZone).Format("01-02 15:04:05"),
+			s.Start.Add(localModels.TimeZone).Add(s.StopCut-s.BeginCut).Format("15:04:05"),
 			s.Media.Name,
 			s.Media.Author,
 		))

@@ -103,6 +103,13 @@ const (
 	SchAutoDJAskMood     = "Выбирай настроения."
 	SchAutoDJSuccess     = "Успешно обновлено."
 
+	LiveAskName    = "Введи название эфира."
+	LiveNotPlaying = "Сейчас эфир не идет."
+	LiveStarted    = "Эфир запущен."
+	LiveSubmitStop = "Точно ли хочешь остановить эфир?"
+	LiveStopped    = "Эфир остановлен."
+	LiveNameEmpty  = "Название эфира не может быть пустым."
+
 	// TODO: write help message
 
 	// "/help" command

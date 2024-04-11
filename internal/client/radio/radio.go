@@ -631,7 +631,7 @@ func (c *Client) GetConfig(ctx context.Context, token jwt.Token) (models.AutoDJC
 }
 
 func (c *Client) SetConfig(ctx context.Context, token jwt.Token, conf models.AutoDJConfig) error {
-	const op = "Client.GetConfig"
+	const op = "Client.SetConfig"
 
 	url := fmt.Sprintf("%s/schedule/dj/config", c.addr)
 
@@ -668,11 +668,11 @@ func (c *Client) SetConfig(ctx context.Context, token jwt.Token, conf models.Aut
 }
 
 func (c *Client) StartAutoDJ(ctx context.Context, token jwt.Token) error {
-	const op = "Client.NewSegment"
+	const op = "Client.StartAutoDJ"
 
 	url := fmt.Sprintf("%s/schedule/dj/start", c.addr)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -698,7 +698,7 @@ func (c *Client) StartAutoDJ(ctx context.Context, token jwt.Token) error {
 }
 
 func (c *Client) StopAutoDJ(ctx context.Context, token jwt.Token) error {
-	const op = "Client.NewSegment"
+	const op = "Client.StopAutoDJ"
 
 	url := fmt.Sprintf("%s/schedule/dj/stop", c.addr)
 
@@ -728,7 +728,7 @@ func (c *Client) StopAutoDJ(ctx context.Context, token jwt.Token) error {
 }
 
 func (c *Client) IsAutoDJPlaying(ctx context.Context, token jwt.Token) (bool, error) {
-	const op = "Client.NewSegment"
+	const op = "Client.IsAutoDJPlaying"
 
 	url := fmt.Sprintf("%s/schedule/dj/status", c.addr)
 
@@ -753,7 +753,7 @@ func (c *Client) IsAutoDJPlaying(ctx context.Context, token jwt.Token) (bool, er
 	switch resp.StatusCode {
 	case 200:
 		var resp struct {
-			IsPlaying bool `json:"isPlaying"`
+			IsPlaying bool `json:"playing"`
 		}
 		if err := json.Unmarshal(bodyResp, &resp); err != nil {
 			return false, fmt.Errorf("%s: %w", op, err)
@@ -765,5 +765,113 @@ func (c *Client) IsAutoDJPlaying(ctx context.Context, token jwt.Token) (bool, er
 		return false, client.ErrInternalServerError
 	default:
 		return false, fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+	}
+}
+
+func (c *Client) StartLive(ctx context.Context, token jwt.Token, live models.Live) error {
+	const op = "Client.StartLive"
+
+	url := fmt.Sprintf("%s/schedule/live/start", c.addr)
+
+	bodyReq, err := json.Marshal(map[string]any{
+		"live": live,
+	})
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(bodyReq))
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token.Raw)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case 200:
+		return nil
+	case 401:
+		return client.ErrNotAuthorized
+	case 500:
+		return client.ErrInternalServerError
+	default:
+		return fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+	}
+}
+
+func (c *Client) StopLive(ctx context.Context, token jwt.Token) error {
+	const op = "Client.StopLive"
+
+	url := fmt.Sprintf("%s/schedule/live/stop", c.addr)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token.Raw)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case 200:
+		return nil
+	case 401:
+		return client.ErrNotAuthorized
+	case 500:
+		return client.ErrInternalServerError
+	default:
+		return fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+	}
+}
+
+func (c *Client) LiveInfo(ctx context.Context, token jwt.Token) (models.Live, error) {
+	const op = "Client.LiveInfo"
+
+	url := fmt.Sprintf("%s/schedule/live/info", c.addr)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return models.Live{}, fmt.Errorf("%s: %w", op, err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token.Raw)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return models.Live{}, fmt.Errorf("%s: %w", op, err)
+	}
+	defer resp.Body.Close()
+
+	bodyResp, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return models.Live{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		var resp struct {
+			Live models.Live `json:"live"`
+		}
+		if err := json.Unmarshal(bodyResp, &resp); err != nil {
+			return models.Live{}, fmt.Errorf("%s: %w", op, err)
+		}
+		return resp.Live, nil
+	case 401:
+		return models.Live{}, client.ErrNotAuthorized
+	case 500:
+		return models.Live{}, client.ErrInternalServerError
+	default:
+		return models.Live{}, fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
 	}
 }

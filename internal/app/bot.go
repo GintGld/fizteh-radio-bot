@@ -13,6 +13,7 @@ import (
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/autodj"
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/datetime"
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/help"
+	"github.com/GintGld/fizteh-radio-bot/internal/controller/live"
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/schedule"
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/search"
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/start"
@@ -67,6 +68,7 @@ func New(
 		yaClient          libSrv.YaClient
 		schClient         schSrv.ScheduleClient
 		djClient          schSrv.AutoDJClient
+		liveClient        schSrv.LiveClient
 	)
 
 	radioClient := radioCl.New(
@@ -83,6 +85,7 @@ func New(
 	yaClient = yandexClient
 	schClient = radioClient
 	djClient = radioClient
+	liveClient = radioClient
 
 	// Services
 	var (
@@ -93,8 +96,10 @@ func New(
 		mediaUploadSrv upload.MediaUpload
 		getScheduleSrv schedule.Schedule
 		dj             autodj.AutoDJ
+		liveSrv        live.LiveSrv
 	)
 
+	// TODO: remove filler
 	if srvFiller {
 		filler := filler.New()
 
@@ -123,6 +128,7 @@ func New(
 			libGetMediaClient,
 			schClient,
 			djClient,
+			liveClient,
 		)
 
 		auth = a
@@ -132,6 +138,7 @@ func New(
 		mediaUploadSrv = l
 		getScheduleSrv = s
 		dj = s
+		liveSrv = s
 	}
 
 	// routing
@@ -180,6 +187,13 @@ func New(
 		router.With("dj"),
 		auth,
 		dj,
+		session,
+		errorHandler,
+	)
+	live.Register(
+		router.With("live"),
+		auth,
+		liveSrv,
 		session,
 		errorHandler,
 	)

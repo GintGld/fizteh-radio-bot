@@ -11,6 +11,10 @@ import (
 	"github.com/GintGld/fizteh-radio-bot/internal/lib/utils/slice"
 )
 
+var (
+	TimeZone = 3 * time.Hour
+)
+
 type User struct {
 	Login string    `json:"login"`
 	Pass  string    `json:"pass"`
@@ -397,6 +401,24 @@ func (conf MediaConfig) String() string {
 	if len(conf.Moods) > 0 {
 		b.WriteString(fmt.Sprintf("<b>Настроение:</b> %s\n", slice.Join(slice.Filter(MoodsAvail[:], conf.Moods[:]), ", ")))
 	}
+
+	return b.String()
+}
+
+type Live struct {
+	ID    int64     `json:"id"`
+	Name  string    `json:"name"`
+	Start time.Time `json:"start"`
+	Stop  time.Time `json:"stop"`
+}
+
+func (l Live) String() string {
+	var b strings.Builder
+
+	b.WriteString("<b>Эфир</b>\n")
+	b.WriteString(fmt.Sprintf("Название: %s\n", l.Name))
+	b.WriteString(fmt.Sprintf("Начало: %s\n", l.Start.Add(TimeZone).Format("01-02 15:04:05")))
+	b.WriteString(fmt.Sprintf("Идет: %s", time.Since(l.Start).String()))
 
 	return b.String()
 }

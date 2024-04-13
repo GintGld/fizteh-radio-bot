@@ -422,9 +422,3 @@ func (l Live) String() string {
 
 	return b.String()
 }
-
-type Listener struct {
-	ID    int64     `json:"id"`
-	Start time.Time `json:"start"`
-	Stop  time.Time `json:"stop"`
-}

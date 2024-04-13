@@ -17,6 +17,7 @@ import (
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/schedule"
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/search"
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/start"
+	statCtr "github.com/GintGld/fizteh-radio-bot/internal/controller/stat"
 	"github.com/GintGld/fizteh-radio-bot/internal/controller/upload"
 
 	authSrv "github.com/GintGld/fizteh-radio-bot/internal/service/auth"
@@ -24,6 +25,7 @@ import (
 	libSrv "github.com/GintGld/fizteh-radio-bot/internal/service/library"
 	schSrv "github.com/GintGld/fizteh-radio-bot/internal/service/schedule"
 	"github.com/GintGld/fizteh-radio-bot/internal/service/session"
+	statSrv "github.com/GintGld/fizteh-radio-bot/internal/service/stat"
 
 	radioCl "github.com/GintGld/fizteh-radio-bot/internal/client/radio"
 	yandexCl "github.com/GintGld/fizteh-radio-bot/internal/client/yandex"
@@ -42,7 +44,8 @@ func New(
 	logSrv *slog.Logger,
 	logTg *slog.Logger,
 	tgToken string,
-	radioAddr string,
+	radioAdminAddr string,
+	radioClientAddr string,
 	yaToken string,
 	webhookAddr string,
 	tmpDir string,
@@ -69,10 +72,12 @@ func New(
 		schClient         schSrv.ScheduleClient
 		djClient          schSrv.AutoDJClient
 		liveClient        schSrv.LiveClient
+		statClient        statSrv.StatClient
 	)
 
 	radioClient := radioCl.New(
-		radioAddr,
+		radioAdminAddr,
+		radioClientAddr,
 	)
 	yandexClient := yandexCl.New(
 		yaToken,
@@ -86,6 +91,7 @@ func New(
 	schClient = radioClient
 	djClient = radioClient
 	liveClient = radioClient
+	statClient = radioClient
 
 	// Services
 	var (
@@ -97,6 +103,7 @@ func New(
 		getScheduleSrv schedule.Schedule
 		dj             autodj.AutoDJ
 		liveSrv        live.LiveSrv
+		stat           statCtr.Stat
 	)
 
 	// TODO: remove filler
@@ -129,6 +136,11 @@ func New(
 			schClient,
 			djClient,
 			liveClient,
+		)
+		stat = statSrv.New(
+			logSrv,
+			a,
+			statClient,
 		)
 
 		auth = a
@@ -195,6 +207,12 @@ func New(
 		auth,
 		liveSrv,
 		session,
+		errorHandler,
+	)
+	statCtr.Register(
+		router.With("stat"),
+		auth,
+		stat,
 		errorHandler,
 	)
 

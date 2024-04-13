@@ -9,4 +9,5 @@ log:
     path: /.log/tg.log
     pretty: false
 tmp-dir: /bot/tmp
-radio-addr: https://radiomipt.ru/admin
+radio-admin-addr: https://radiomipt.ru/admin
+radio-client-addr: https://radiomipt.ru

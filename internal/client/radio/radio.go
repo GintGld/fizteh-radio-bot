@@ -22,9 +22,10 @@ import (
 // TODO handle error messages.
 
 type Client struct {
-	addr      string
-	c         *http.Client
-	jwtParser *jwt.Parser
+	adminAddr  string
+	clientAddr string
+	c          *http.Client
+	jwtParser  *jwt.Parser
 }
 
 type HTTPError struct {
@@ -32,19 +33,21 @@ type HTTPError struct {
 }
 
 func New(
-	addr string,
+	adminAddr string,
+	clientAddr string,
 ) *Client {
 	return &Client{
-		addr:      addr,
-		c:         http.DefaultClient,
-		jwtParser: new(jwt.Parser),
+		adminAddr:  adminAddr,
+		clientAddr: clientAddr,
+		c:          http.DefaultClient,
+		jwtParser:  new(jwt.Parser),
 	}
 }
 
 func (c *Client) GetToken(ctx context.Context, user models.User) (jwt.Token, error) {
 	const op = "Client.GetToken"
 
-	url := fmt.Sprintf("%s/login", c.addr)
+	url := fmt.Sprintf("%s/login", c.adminAddr)
 
 	bodyReq, err := json.Marshal(map[string]string{
 		"login": user.Login,
@@ -100,7 +103,7 @@ func (c *Client) GetToken(ctx context.Context, user models.User) (jwt.Token, err
 func (c *Client) Search(ctx context.Context, token jwt.Token, filter models.MediaFilter) ([]models.Media, error) {
 	const op = "Client.Search"
 
-	url := fmt.Sprintf("%s/library/media", c.addr)
+	url := fmt.Sprintf("%s/library/media", c.adminAddr)
 
 	query := make([]string, 0, 4)
 	if filter.Name != "" {
@@ -165,7 +168,7 @@ func (c *Client) Search(ctx context.Context, token jwt.Token, filter models.Medi
 func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Media) (int64, error) {
 	const op = "Client.NewMedia"
 
-	url := fmt.Sprintf("%s/library/media", c.addr)
+	url := fmt.Sprintf("%s/library/media", c.adminAddr)
 
 	jsonBytes, err := json.Marshal(map[string]any{
 		"name":   media.Name,
@@ -244,7 +247,7 @@ func (c *Client) NewMedia(ctx context.Context, token jwt.Token, media models.Med
 func (c *Client) UpdateMedia(ctx context.Context, token jwt.Token, media models.Media) error {
 	const op = "Client.UpdateMedia"
 
-	url := fmt.Sprintf("%s/library/media", c.addr)
+	url := fmt.Sprintf("%s/library/media", c.adminAddr)
 
 	jsonBytes, err := json.Marshal(map[string]any{
 		"media": map[string]any{
@@ -297,7 +300,7 @@ func (c *Client) UpdateMedia(ctx context.Context, token jwt.Token, media models.
 func (c *Client) DeleteMedia(ctx context.Context, token jwt.Token, mediaId int64) error {
 	const op = "Client.DeleteMedia"
 
-	url := fmt.Sprintf("%s/library/media/%d", c.addr, mediaId)
+	url := fmt.Sprintf("%s/library/media/%d", c.adminAddr, mediaId)
 
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
@@ -338,7 +341,7 @@ func (c *Client) DeleteMedia(ctx context.Context, token jwt.Token, mediaId int64
 func (c *Client) Media(ctx context.Context, token jwt.Token, id int64) (models.Media, error) {
 	const op = "Client.Media"
 
-	url := fmt.Sprintf("%s/library/media/%d", c.addr, id)
+	url := fmt.Sprintf("%s/library/media/%d", c.adminAddr, id)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -385,7 +388,7 @@ func (c *Client) Media(ctx context.Context, token jwt.Token, id int64) (models.M
 func (c *Client) AllTags(ctx context.Context, token jwt.Token) (models.TagList, error) {
 	const op = "Client.AllTags"
 
-	url := fmt.Sprintf("%s/library/tag", c.addr)
+	url := fmt.Sprintf("%s/library/tag", c.adminAddr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -431,7 +434,7 @@ func (c *Client) AllTags(ctx context.Context, token jwt.Token) (models.TagList, 
 func (c *Client) NewTag(ctx context.Context, token jwt.Token, tag models.Tag) (int64, error) {
 	const op = "Client.NewTag"
 
-	url := fmt.Sprintf("%s/library/tag", c.addr)
+	url := fmt.Sprintf("%s/library/tag", c.adminAddr)
 
 	bodyReq, err := json.Marshal(map[string]any{
 		"tag": tag,
@@ -485,7 +488,7 @@ func (c *Client) NewTag(ctx context.Context, token jwt.Token, tag models.Tag) (i
 func (c *Client) NewSegment(ctx context.Context, token jwt.Token, segm models.Segment) error {
 	const op = "Client.NewSegment"
 
-	url := fmt.Sprintf("%s/schedule", c.addr)
+	url := fmt.Sprintf("%s/schedule", c.adminAddr)
 
 	bodyReq, err := json.Marshal(map[string]any{
 		"segment": map[string]any{
@@ -545,7 +548,7 @@ func (c *Client) NewSegment(ctx context.Context, token jwt.Token, segm models.Se
 func (c *Client) GetSchedule(ctx context.Context, token jwt.Token) ([]models.Segment, error) {
 	const op = "Client.GetSchedule"
 
-	url := fmt.Sprintf("%s/schedule?start=%d", c.addr, time.Now().Unix())
+	url := fmt.Sprintf("%s/schedule?start=%d", c.adminAddr, time.Now().Unix())
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -592,7 +595,7 @@ func (c *Client) GetSchedule(ctx context.Context, token jwt.Token) ([]models.Seg
 func (c *Client) GetConfig(ctx context.Context, token jwt.Token) (models.AutoDJConfig, error) {
 	const op = "Client.GetConfig"
 
-	url := fmt.Sprintf("%s/schedule/dj/config", c.addr)
+	url := fmt.Sprintf("%s/schedule/dj/config", c.adminAddr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -633,7 +636,7 @@ func (c *Client) GetConfig(ctx context.Context, token jwt.Token) (models.AutoDJC
 func (c *Client) SetConfig(ctx context.Context, token jwt.Token, conf models.AutoDJConfig) error {
 	const op = "Client.SetConfig"
 
-	url := fmt.Sprintf("%s/schedule/dj/config", c.addr)
+	url := fmt.Sprintf("%s/schedule/dj/config", c.adminAddr)
 
 	bodyReq, err := json.Marshal(map[string]any{
 		"config": conf,
@@ -670,7 +673,7 @@ func (c *Client) SetConfig(ctx context.Context, token jwt.Token, conf models.Aut
 func (c *Client) StartAutoDJ(ctx context.Context, token jwt.Token) error {
 	const op = "Client.StartAutoDJ"
 
-	url := fmt.Sprintf("%s/schedule/dj/start", c.addr)
+	url := fmt.Sprintf("%s/schedule/dj/start", c.adminAddr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -700,7 +703,7 @@ func (c *Client) StartAutoDJ(ctx context.Context, token jwt.Token) error {
 func (c *Client) StopAutoDJ(ctx context.Context, token jwt.Token) error {
 	const op = "Client.StopAutoDJ"
 
-	url := fmt.Sprintf("%s/schedule/dj/stop", c.addr)
+	url := fmt.Sprintf("%s/schedule/dj/stop", c.adminAddr)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
 	if err != nil {
@@ -730,7 +733,7 @@ func (c *Client) StopAutoDJ(ctx context.Context, token jwt.Token) error {
 func (c *Client) IsAutoDJPlaying(ctx context.Context, token jwt.Token) (bool, error) {
 	const op = "Client.IsAutoDJPlaying"
 
-	url := fmt.Sprintf("%s/schedule/dj/status", c.addr)
+	url := fmt.Sprintf("%s/schedule/dj/status", c.adminAddr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -771,7 +774,7 @@ func (c *Client) IsAutoDJPlaying(ctx context.Context, token jwt.Token) (bool, er
 func (c *Client) StartLive(ctx context.Context, token jwt.Token, live models.Live) error {
 	const op = "Client.StartLive"
 
-	url := fmt.Sprintf("%s/schedule/live/start", c.addr)
+	url := fmt.Sprintf("%s/schedule/live/start", c.adminAddr)
 
 	bodyReq, err := json.Marshal(map[string]any{
 		"live": live,
@@ -808,7 +811,7 @@ func (c *Client) StartLive(ctx context.Context, token jwt.Token, live models.Liv
 func (c *Client) StopLive(ctx context.Context, token jwt.Token) error {
 	const op = "Client.StopLive"
 
-	url := fmt.Sprintf("%s/schedule/live/stop", c.addr)
+	url := fmt.Sprintf("%s/schedule/live/stop", c.adminAddr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -838,7 +841,7 @@ func (c *Client) StopLive(ctx context.Context, token jwt.Token) error {
 func (c *Client) LiveInfo(ctx context.Context, token jwt.Token) (models.Live, error) {
 	const op = "Client.LiveInfo"
 
-	url := fmt.Sprintf("%s/schedule/live/info", c.addr)
+	url := fmt.Sprintf("%s/schedule/live/info", c.adminAddr)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -873,5 +876,43 @@ func (c *Client) LiveInfo(ctx context.Context, token jwt.Token) (models.Live, er
 		return models.Live{}, client.ErrInternalServerError
 	default:
 		return models.Live{}, fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
+	}
+}
+
+func (c *Client) ListenersNumber(ctx context.Context) (int64, error) {
+	const op = "Client.ListenersNumber"
+
+	url := fmt.Sprintf("%s/stat/listeners/number", c.clientAddr)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.c.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+	defer resp.Body.Close()
+
+	bodyResp, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		var resp struct {
+			N int64 `json:"listeners"`
+		}
+		if err := json.Unmarshal(bodyResp, &resp); err != nil {
+			return 0, fmt.Errorf("%s: %w", op, err)
+		}
+		return resp.N, nil
+	case 500:
+		return 0, client.ErrInternalServerError
+	default:
+		return 0, fmt.Errorf("%s: unknown return status %d", op, resp.StatusCode)
 	}
 }

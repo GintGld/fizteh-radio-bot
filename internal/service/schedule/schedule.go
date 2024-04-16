@@ -347,6 +347,11 @@ func (s *schedule) StartLive(ctx context.Context, id int64, live models.Live) er
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
+	if err := s.djClient.StopAutoDJ(ctx, token); err != nil {
+		log.Error("failed to stop autodj", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
 	if err := s.liveClient.StartLive(ctx, token, live); err != nil {
 		log.Error("failed to start live", sl.Err(err))
 		return fmt.Errorf("%s: %w", op, err)
@@ -371,6 +376,11 @@ func (s *schedule) StopLive(ctx context.Context, id int64) error {
 
 	if err := s.liveClient.StopLive(ctx, token); err != nil {
 		log.Error("failed to stop live", sl.Err(err))
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := s.djClient.StartAutoDJ(ctx, token); err != nil {
+		log.Error("failed to start dj", sl.Err(err))
 		return fmt.Errorf("%s: %w", op, err)
 	}
 

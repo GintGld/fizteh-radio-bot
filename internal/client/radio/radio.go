@@ -705,7 +705,7 @@ func (c *Client) StopAutoDJ(ctx context.Context, token jwt.Token) error {
 
 	url := fmt.Sprintf("%s/schedule/dj/stop", c.adminAddr)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}

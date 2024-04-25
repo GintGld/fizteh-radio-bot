@@ -13,6 +13,7 @@ services:
       - ./.log/bot:/.log      
     env_file:
       - .env
+    network_mode: host
 
 volumes:
   tmp:

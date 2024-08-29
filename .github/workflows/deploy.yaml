@@ -8,11 +8,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HOST: fizteh-radio@radiomipt.ru
-      PORT: 5010
-      DEPLOY_DIR: /home/fizteh-radio/online-radio/bot
-      CONFIG_PATH: /home/fizteh-radio/online-radio/bot/prod.yaml
-      ENV_FILE_PATH: /home/fizteh-radio/online-radio/bot/.env
-      COMPOSE_ENV: /home/fizteh-radio/online-radio/bot/compose.env
+      PORT: 22
+      DEPLOY_DIR: /home/fizteh-radio/bot
+      CONFIG_PATH: /home/fizteh-radio/bot/prod.yaml
+      ENV_FILE_PATH: /home/fizteh-radio/bot/.env
+      COMPOSE_ENV: /home/fizteh-radio/bot/compose.env
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
